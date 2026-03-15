@@ -7,6 +7,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ControleFamiliarAPI.Services.Implementations
 {
+    /// <summary>
+    /// Serviço responsável pela lógica de negócio das transações financeiras.
+    /// </summary>
     public class TransacaoService : ITransacaoService
     {
         private readonly AppDbContext _context;

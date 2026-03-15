@@ -1,4 +1,5 @@
-﻿using ControleFamiliarAPI.DTOs.Relatorios;
+﻿using ControleFamiliarAPI.DTO.Relatorios;
+using ControleFamiliarAPI.DTOs.Relatorios;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleGastos.Api.Data;
 using ControleGastos.Api.Models.Enums;
@@ -38,6 +39,20 @@ namespace ControleFamiliarAPI.Services.Implementations
                 TotalReceitas = pessoas.Sum(p => p.TotalReceitas),
                 TotalDespesas = pessoas.Sum(p => p.TotalDespesas)
             };
+        }
+
+        public async Task<List<TotaisCategoriaDto>> TotaisPorCategoria()
+        {
+            return await _context.Transacoes
+                .Include(t => t.Categoria)
+                .Where(t => t.Tipo == TipoTransacao.Despesa)
+                .GroupBy(t => t.Categoria!.Descricao)
+                .Select(g => new TotaisCategoriaDto
+                {
+                    Categoria = g.Key,
+                    Total = g.Sum(t => t.Valor)
+                })
+                .ToListAsync();
         }
     }
 }
