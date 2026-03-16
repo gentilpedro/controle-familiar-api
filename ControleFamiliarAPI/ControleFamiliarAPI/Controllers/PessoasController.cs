@@ -1,4 +1,4 @@
-Ôªøusing ControleFamiliarAPI.DTO.Pessoa;
+using ControleFamiliarAPI.DTO.Pessoa;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -7,12 +7,12 @@ namespace ControleFamiliarAPI.Controllers
 {
 
     /// <summary>
-    /// Controller respons√°vel pelo gerenciamento das pessoas cadastradas no sistema.
+    /// Controller respons·vel pelo gerenciamento das pessoas cadastradas no sistema.
     /// </summary>
     /// <remarks>
     /// Permite criar, listar, atualizar e remover pessoas.
     /// 
-    /// As pessoas cadastradas s√£o utilizadas para registrar transa√ß√µes financeiras
+    /// As pessoas cadastradas s„o utilizadas para registrar transaÁıes financeiras
     /// (receitas e despesas) no sistema de controle de gastos familiares.
     /// </remarks>
     
@@ -23,9 +23,9 @@ namespace ControleFamiliarAPI.Controllers
         private readonly IPessoaService _service;
 
         /// <summary>
-        /// Inicializa uma nova inst√¢ncia da controller de pessoas.
+        /// Inicializa uma nova inst‚ncia da controller de pessoas.
         /// </summary>
-        /// <param name="service">Servi√ßo respons√°vel pela l√≥gica de neg√≥cio das pessoas</param>
+        /// <param name="service">ServiÁo respons·vel pela lÛgica de negÛcio das pessoas</param>
 
         public PessoasController(IPessoaService service)
         {
@@ -40,12 +40,12 @@ namespace ControleFamiliarAPI.Controllers
         /// 
         /// Cada pessoa possui:
         /// 
-        /// - Identificador √∫nico
+        /// - Identificador ˙nico
         /// - Nome
         /// - Idade
         /// 
-        /// Essas informa√ß√µes s√£o utilizadas para vincular transa√ß√µes financeiras
-        /// ao respons√°vel pela receita ou despesa.
+        /// Essas informaÁıes s„o utilizadas para vincular transaÁıes financeiras
+        /// ao respons·vel pela receita ou despesa.
         /// </remarks>
         /// <returns>
         /// Lista contendo todas as pessoas cadastradas.
@@ -62,25 +62,25 @@ namespace ControleFamiliarAPI.Controllers
         /// Cria uma nova pessoa no sistema.
         /// </summary>
         /// <remarks>
-        /// Registra uma nova pessoa que poder√° realizar transa√ß√µes financeiras.
+        /// Registra uma nova pessoa que poder· realizar transaÁıes financeiras.
         /// 
-        /// Dados necess√°rios:
+        /// Dados necess·rios:
         /// 
-        /// - Nome (m√°ximo de 200 caracteres)
+        /// - Nome (m·ximo de 200 caracteres)
         /// - Idade
         /// 
-        /// Regras de neg√≥cio:
+        /// Regras de negÛcio:
         /// 
-        /// - Pessoas menores de 18 anos n√£o podem registrar receitas
-        /// - Ao remover uma pessoa, todas as transa√ß√µes associadas a ela
-        ///   ser√£o removidas automaticamente.
+        /// - Pessoas menores de 18 anos n„o podem registrar receitas
+        /// - Ao remover uma pessoa, todas as transaÁıes associadas a ela
+        ///   ser„o removidas automaticamente.
         /// </remarks>
         /// <param name="dto">Objeto contendo os dados da pessoa</param>
         /// <returns>
         /// Pessoa criada com sucesso.
         /// </returns>
         /// <response code="200">Pessoa criada com sucesso</response>
-        /// <response code="400">Erro de valida√ß√£o</response>
+        /// <response code="400">Erro de validaÁ„o</response>
 
         [HttpPost]
         public async Task<ActionResult> Criar(PessoaCreateDto dto)
@@ -93,42 +93,42 @@ namespace ControleFamiliarAPI.Controllers
         /// Atualiza os dados de uma pessoa existente.
         /// </summary>
         /// <remarks>
-        /// Permite alterar o nome ou idade de uma pessoa j√° cadastrada.
+        /// Permite alterar o nome ou idade de uma pessoa j· cadastrada.
         /// 
         /// O identificador da pessoa deve ser informado na rota.
         /// </remarks>
         /// <param name="id">Identificador da pessoa</param>
         /// <param name="dto">Dados atualizados da pessoa</param>
         /// <returns>
-        /// Mensagem informando o resultado da opera√ß√£o.
+        /// Mensagem informando o resultado da operaÁ„o.
         /// </returns>
         /// <response code="200">Pessoa atualizada com sucesso</response>
-        /// <response code="404">Pessoa n√£o encontrada</response>
+        /// <response code="404">Pessoa n„o encontrada</response>
 
-        [HttpPut("{id}")]
+        [HttpPatch("{id}")]
         public async Task<ActionResult> Atualizar(int id, PessoaUpdateDto dto)
         {
             await _service.Atualizar(id, dto);
-            return Ok(new ApiResponse<string>("Pessoa n√£o encontrada"));
+            return Ok(new ApiResponse<string>("Pessoa n„o encontrada"));
         }
 
         /// <summary>
         /// Remove uma pessoa do sistema.
         /// </summary>
         /// <remarks>
-        /// Remove uma pessoa cadastrada atrav√©s do seu identificador.
+        /// Remove uma pessoa cadastrada atravÈs do seu identificador.
         /// 
         /// Importante:
         /// 
-        /// - Todas as transa√ß√µes associadas a essa pessoa
-        ///   ser√£o removidas automaticamente do sistema.
+        /// - Todas as transaÁıes associadas a essa pessoa
+        ///   ser„o removidas automaticamente do sistema.
         /// </remarks>
         /// <param name="id">Identificador da pessoa</param>
         /// <returns>
-        /// Mensagem confirmando a remo√ß√£o da pessoa.
+        /// Mensagem confirmando a remoÁ„o da pessoa.
         /// </returns>
         /// <response code="200">Pessoa removida com sucesso</response>
-        /// <response code="404">Pessoa n√£o encontrada</response>
+        /// <response code="404">Pessoa n„o encontrada</response>
 
         [HttpDelete("{id}")]
         public async Task<ActionResult> Deletar(int id)

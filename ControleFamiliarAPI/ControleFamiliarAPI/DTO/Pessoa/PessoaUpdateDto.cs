@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace ControleFamiliarAPI.DTO.Pessoa
 {
@@ -6,9 +6,9 @@ namespace ControleFamiliarAPI.DTO.Pessoa
     {
         [Required]
         [MaxLength(200)]
-        public string Nome { get; set; } = string.Empty;
+        public string? Nome { get; set; } = string.Empty;
 
         [Required]
-        public int Idade { get; set; }
+        public int? Idade { get; set; }
     }
 }

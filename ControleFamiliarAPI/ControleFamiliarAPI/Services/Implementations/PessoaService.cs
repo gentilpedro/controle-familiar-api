@@ -1,4 +1,4 @@
-Ôªøusing ControleFamiliarAPI.DTO.Pessoa;
+using ControleFamiliarAPI.DTO.Pessoa;
 using ControleFamiliarAPI.DTOs;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleGastos.Api.Data;
@@ -53,10 +53,13 @@ namespace ControleFamiliarAPI.Services.Implementations
             var pessoa = await _context.Pessoas.FindAsync(id);
 
             if (pessoa == null)
-                throw new Exception("Pessoa n√£o encontrada");
+                throw new Exception("Pessoa n„o encontrada");
 
-            pessoa.Nome = dto.Nome;
-            pessoa.Idade = dto.Idade;
+            if (!string.IsNullOrEmpty(dto.Nome))
+                pessoa.Nome = dto.Nome;
+
+            if (dto.Idade.HasValue)
+                pessoa.Idade = dto.Idade.Value;
 
             await _context.SaveChangesAsync();
         }
@@ -66,7 +69,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             var pessoa = await _context.Pessoas.FindAsync(id);
 
             if (pessoa == null)
-                throw new Exception("Pessoa n√£o encontrada");
+                throw new Exception("Pessoa n„o encontrada");
 
             _context.Pessoas.Remove(pessoa);
 
