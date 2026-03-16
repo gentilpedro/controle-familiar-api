@@ -1,4 +1,5 @@
-﻿using ControleGastos.Api.Models;
+﻿using ControleFamiliarAPI.Models;
+using ControleGastos.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControleGastos.Api.Data
@@ -12,6 +13,7 @@ namespace ControleGastos.Api.Data
         public DbSet<Pessoa> Pessoas => Set<Pessoa>();
         public DbSet<Categoria> Categorias => Set<Categoria>();
         public DbSet<Transacao> Transacoes => Set<Transacao>();
+        public DbSet<Usuario> Usuarios => Set<Usuario>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

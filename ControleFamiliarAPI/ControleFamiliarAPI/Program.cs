@@ -3,7 +3,9 @@ using ControleFamiliarAPI.Services.Implementations;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleGastos.Api.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +20,7 @@ builder.Services.AddScoped<IPessoaService, PessoaService>();
 builder.Services.AddScoped<ICategoriaService, CategoriaService>();
 builder.Services.AddScoped<ITransacaoService, TransacaoService>();
 builder.Services.AddScoped<IRelatorioService, RelatorioService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 
 builder.Services.AddCors(options =>
@@ -30,6 +33,24 @@ builder.Services.AddCors(options =>
                   .AllowAnyHeader();
         });
 });
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer("Bearer", options =>
+    {
+        options.TokenValidationParameters = new()
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey =
+                new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])
+                )
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 
 builder.Services.AddControllers();
 
