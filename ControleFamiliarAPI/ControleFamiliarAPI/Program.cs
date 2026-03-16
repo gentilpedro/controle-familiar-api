@@ -41,17 +41,14 @@ builder.Services.AddAuthentication("Bearer")
     {
         options.TokenValidationParameters = new()
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
+            ValidateIssuer = false,
+            ValidateAudience = false,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-
-            ValidIssuer = "ControleFamiliarAPI",
-            ValidAudience = "ControleFamiliarAPI",
-
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])
-            )
+            IssuerSigningKey =
+                new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])
+                )
         };
     });
 
