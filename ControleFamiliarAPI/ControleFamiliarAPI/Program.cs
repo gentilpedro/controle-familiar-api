@@ -3,7 +3,7 @@ using ControleFamiliarAPI.Services.Implementations;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleGastos.Api.Data;
 using Microsoft.EntityFrameworkCore;
-using Scalar.AspNetCore;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +33,14 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 
+builder.Services.AddSwaggerGen(options =>
+{
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
+    options.IncludeXmlComments(xmlPath);
+});
+
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -45,7 +53,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.MapScalarApiReference("scalar/v1");
+    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Controle Familiar"));
 }
 
 
