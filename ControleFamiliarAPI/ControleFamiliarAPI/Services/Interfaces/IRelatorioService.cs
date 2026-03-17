@@ -7,5 +7,9 @@ namespace ControleFamiliarAPI.Services.Interfaces
     {
         Task<ResumoPessoasDto> TotaisPorPessoa();
         Task<List<TotaisCategoriaDto>> TotaisPorCategoria();
+        Task<byte[]> GerarExcelTotaisPessoa();
+        Task<byte[]> GerarExcelTotaisCategoria();
     }
+
+}
 }
