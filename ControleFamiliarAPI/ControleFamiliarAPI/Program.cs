@@ -3,7 +3,8 @@ using ControleFamiliarAPI.Services.Implementations;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleGastos.Api.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection;
+using Microsoft.OpenApi.Models;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,15 +32,19 @@ builder.Services.AddCors(options =>
         });
 });
 
-builder.Services.AddControllers();
-
-builder.Services.AddSwaggerGen(options =>
+builder.Services.AddOpenApi(options =>
 {
-    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
 
-    options.IncludeXmlComments(xmlPath);
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Info.Description = "API Controle Familiar com documentação detalhada";
+        return Task.CompletedTask;
+    });
 });
+
+builder.Services.AddControllers();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -53,8 +58,10 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Controle Familiar"));
+    app.MapScalarApiReference();
 }
+
+
 
 
 app.UseAuthorization();
