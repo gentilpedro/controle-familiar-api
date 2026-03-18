@@ -12,4 +12,3 @@ namespace ControleFamiliarAPI.Services.Interfaces
     }
 
 }
-}
