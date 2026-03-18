@@ -1,24 +1,14 @@
-Ôªøusing ControleFamiliarAPI.DTOs.Transacao;
+using ControleFamiliarAPI.DTOs.Transacao;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OpenApi;
 
 namespace ControleFamiliarAPI.Controllers
 {
-    /// <summary>
-    /// Controller respons√°vel pelo gerenciamento das transa√ß√µes financeiras.
-    /// </summary>
-    /// <remarks>
-    /// Permite registrar e consultar receitas e despesas vinculadas
-    /// √†s pessoas e categorias cadastradas no sistema.
-    /// </remarks>
     [ApiController]
     [Route("api/transacoes")]
     public class TransacoesController : ControllerBase
     {
-        /// <summary>
-        /// Inicializa uma nova inst√¢ncia da controller de transa√ß√µes.
-        /// </summary>
-        /// <param name="service">Servi√ßo respons√°vel pela l√≥gica de neg√≥cio das transa√ß√µes</param>
         private readonly ITransacaoService _service;
 
         public TransacoesController(ITransacaoService service)
@@ -26,59 +16,49 @@ namespace ControleFamiliarAPI.Controllers
             _service = service;
         }
 
-
-        /// <summary>
-        /// Lista todas as transa√ß√µes cadastradas.
-        /// </summary>
-        /// <remarks>
-        /// Retorna todas as transa√ß√µes registradas no sistema contendo:
-        /// 
-        /// - Identificador da transa√ß√£o
-        /// - Descri√ß√£o
-        /// - Valor
-        /// - Tipo da transa√ß√£o (Receita ou Despesa)
-        /// - Pessoa associada
-        /// - Categoria associada
-        /// </remarks>
-        /// <returns>
-        /// Lista de transa√ß√µes cadastradas.
-        /// </returns>
-        /// <response code="200">Lista de transa√ß√µes retornada com sucesso</response>
+        // GET api/transacoes
         [HttpGet]
+        [Tags("TransaÁıes")]
+        [EndpointSummary("Lista todas as transaÁıes financeiras")]
+        [EndpointDescription("""
+            Retorna todas as transaÁıes registradas no sistema.
+            
+            Cada transaÁ„o contÈm:
+            - Identificador da transaÁ„o
+            - DescriÁ„o
+            - Valor
+            - Tipo (Receita ou Despesa)
+            - Pessoa associada
+            - Categoria associada
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult> Listar()
         {
             return Ok(await _service.Listar());
         }
 
-
-        /// <summary>
-        /// Cria uma nova transa√ß√£o financeira.
-        /// </summary>
-        /// <remarks>
-        /// Registra uma nova transa√ß√£o de receita ou despesa vinculada
-        /// a uma pessoa e a uma categoria existente.
-        /// 
-        /// Dados necess√°rios:
-        /// 
-        /// - Descri√ß√£o da transa√ß√£o
-        /// - Valor (deve ser positivo)
-        /// - Tipo da transa√ß√£o (Receita ou Despesa)
-        /// - Identificador da pessoa
-        /// - Identificador da categoria
-        /// 
-        /// Regras de neg√≥cio:
-        /// 
-        /// - O valor deve ser maior que zero
-        /// - Pessoas menores de 18 anos podem registrar apenas despesas
-        /// - A categoria deve ser compat√≠vel com o tipo da transa√ß√£o
-        /// </remarks>
-        /// <param name="dto">Objeto contendo os dados da transa√ß√£o</param>
-        /// <returns>
-        /// Confirma√ß√£o da cria√ß√£o da transa√ß√£o.
-        /// </returns>
-        /// <response code="200">Transa√ß√£o criada com sucesso</response>
-        /// <response code="400">Erro de valida√ß√£o ou regra de neg√≥cio</response>
+        // POST api/transacoes
         [HttpPost]
+        [Tags("TransaÁıes")]
+        [EndpointSummary("Cria uma nova transaÁ„o financeira")]
+        [EndpointDescription("""
+            Registra uma nova transaÁ„o de receita ou despesa vinculada
+            a uma pessoa e a uma categoria existente.
+            
+            Dados necess·rios:
+            - DescriÁ„o da transaÁ„o
+            - Valor (deve ser positivo)
+            - Tipo da transaÁ„o (Receita ou Despesa)
+            - Identificador da pessoa
+            - Identificador da categoria
+            
+            Regras de negÛcio:
+            - O valor deve ser maior que zero
+            - Pessoas menores de 18 anos podem registrar apenas despesas
+            - A categoria deve ser compatÌvel com o tipo da transaÁ„o
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<ActionResult> Criar(TransacaoCreateDto dto)
         {
             await _service.Criar(dto);
