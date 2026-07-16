@@ -13,10 +13,18 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection não configurada. Em desenvolvimento, use 'dotnet user-secrets set ConnectionStrings:DefaultConnection \"...\"'; em produção, defina a variável de ambiente ConnectionStrings__DefaultConnection.");
+
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(jwtKey))
+    throw new InvalidOperationException(
+        "Jwt:Key não configurada. Em desenvolvimento, use 'dotnet user-secrets set Jwt:Key \"...\"'; em produção, defina a variável de ambiente Jwt__Key.");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")
-    ));
+    options.UseSqlServer(connectionString));
 
 builder.Services
     .AddIdentityCore<Usuario>(options =>

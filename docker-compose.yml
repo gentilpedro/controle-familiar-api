@@ -4,7 +4,7 @@ services:
     container_name: controle-familiar-mssql
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "ControleFin@2026!"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
       MSSQL_PID: "Developer"
     ports:
       - "14330:1433"
