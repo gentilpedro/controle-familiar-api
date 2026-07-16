@@ -44,5 +44,12 @@ namespace ControleGastos.Api.Models
         [Required]
         public int CategoriaId { get; set; }
         public Categoria? Categoria { get; set; }
+
+        /// <summary>
+        /// Família à qual esta transação pertence (herdada da Pessoa no momento da criação).
+        /// </summary>
+        [Required]
+        public int FamiliaId { get; set; }
+        public Familia? Familia { get; set; }
     }
 }

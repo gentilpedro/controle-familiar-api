@@ -24,6 +24,13 @@ namespace ControleGastos.Api.Models
         public FinalidadeCategoria Finalidade { get; set; }
 
         /// <summary>
+        /// Família à qual esta categoria pertence.
+        /// </summary>
+        [Required]
+        public int FamiliaId { get; set; }
+        public Familia? Familia { get; set; }
+
+        /// <summary>
         /// Lista de transações vinculadas à categoria.
         /// </summary>
         public List<Transacao> Transacoes { get; set; } = new();

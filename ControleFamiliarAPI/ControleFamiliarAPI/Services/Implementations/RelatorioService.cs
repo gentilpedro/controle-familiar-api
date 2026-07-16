@@ -9,15 +9,18 @@ using Microsoft.EntityFrameworkCore;
 public class RelatorioService : IRelatorioService
 {
     private readonly AppDbContext _context;
+    private readonly ICurrentUserService _currentUser;
 
-    public RelatorioService(AppDbContext context)
+    public RelatorioService(AppDbContext context, ICurrentUserService currentUser)
     {
         _context = context;
+        _currentUser = currentUser;
     }
 
     public async Task<ResumoPessoasDto> TotaisPorPessoa()
     {
         var pessoas = await _context.Pessoas
+            .Where(p => p.FamiliaId == _currentUser.FamiliaId)
             .Select(p => new TotaisPessoaDto
             {
                 Pessoa = p.Nome,
@@ -44,7 +47,7 @@ public class RelatorioService : IRelatorioService
     {
         return await _context.Transacoes
             .Include(t => t.Categoria)
-            .Where(t => t.Tipo == TipoTransacao.Despesa)
+            .Where(t => t.FamiliaId == _currentUser.FamiliaId && t.Tipo == TipoTransacao.Despesa)
             .GroupBy(t => t.Categoria!.Descricao)
             .Select(g => new TotaisCategoriaDto
             {

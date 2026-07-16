@@ -1,14 +1,17 @@
 ﻿using ControleGastos.Api.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControleGastos.Api.Data
 {
-    public class AppDbContext : DbContext
+    public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<int>, int>
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
 
+        public DbSet<Familia> Familias => Set<Familia>();
         public DbSet<Pessoa> Pessoas => Set<Pessoa>();
         public DbSet<Categoria> Categorias => Set<Categoria>();
         public DbSet<Transacao> Transacoes => Set<Transacao>();
@@ -16,6 +19,36 @@ namespace ControleGastos.Api.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Configuração da entidade Familia
+            modelBuilder.Entity<Familia>(entity =>
+            {
+                entity.HasKey(f => f.Id);
+
+                entity.Property(f => f.Nome)
+                      .IsRequired()
+                      .HasMaxLength(200);
+
+                entity.Property(f => f.CodigoConvite)
+                      .IsRequired()
+                      .HasMaxLength(12);
+
+                entity.HasIndex(f => f.CodigoConvite)
+                      .IsUnique();
+            });
+
+            // Configuração da entidade Usuario
+            modelBuilder.Entity<Usuario>(entity =>
+            {
+                entity.Property(u => u.Nome)
+                      .IsRequired()
+                      .HasMaxLength(200);
+
+                entity.HasOne(u => u.Familia)
+                      .WithMany(f => f.Usuarios)
+                      .HasForeignKey(u => u.FamiliaId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
 
             // Configuração da entidade Pessoa
             modelBuilder.Entity<Pessoa>(entity =>
@@ -28,6 +61,11 @@ namespace ControleGastos.Api.Data
 
                 entity.Property(p => p.Idade)
                       .IsRequired();
+
+                entity.HasOne(p => p.Familia)
+                      .WithMany()
+                      .HasForeignKey(p => p.FamiliaId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Configuração da entidade Categoria
@@ -41,6 +79,11 @@ namespace ControleGastos.Api.Data
 
                 entity.Property(c => c.Finalidade)
                       .IsRequired();
+
+                entity.HasOne(c => c.Familia)
+                      .WithMany()
+                      .HasForeignKey(c => c.FamiliaId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Configuração da entidade Transacao
@@ -54,7 +97,7 @@ namespace ControleGastos.Api.Data
 
                 entity.Property(t => t.Valor)
                       .IsRequired()
-                      .HasColumnType("numeric(18,2)");
+                      .HasColumnType("decimal(18,2)");
 
                 entity.Property(t => t.Tipo)
                       .IsRequired();
@@ -69,6 +112,12 @@ namespace ControleGastos.Api.Data
                 entity.HasOne(t => t.Categoria)
                       .WithMany(c => c.Transacoes)
                       .HasForeignKey(t => t.CategoriaId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // Relacionamento: uma Familia possui muitas Transacoes
+                entity.HasOne(t => t.Familia)
+                      .WithMany()
+                      .HasForeignKey(t => t.FamiliaId)
                       .OnDelete(DeleteBehavior.Restrict);
             });
         }

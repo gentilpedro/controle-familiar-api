@@ -13,15 +13,18 @@ namespace ControleFamiliarAPI.Services.Implementations
     public class TransacaoService : ITransacaoService
     {
         private readonly AppDbContext _context;
+        private readonly ICurrentUserService _currentUser;
 
-        public TransacaoService(AppDbContext context)
+        public TransacaoService(AppDbContext context, ICurrentUserService currentUser)
         {
             _context = context;
+            _currentUser = currentUser;
         }
 
         public async Task<List<TransacaoResponseDto>> Listar()
         {
             return await _context.Transacoes
+                .Where(t => t.FamiliaId == _currentUser.FamiliaId)
                 .Include(t => t.Pessoa)
                 .Include(t => t.Categoria)
                 .Select(t => new TransacaoResponseDto
@@ -41,12 +44,14 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (dto.Valor <= 0)
                 throw new Exception("O valor deve ser positivo.");
 
-            var pessoa = await _context.Pessoas.FindAsync(dto.PessoaId);
+            var pessoa = await _context.Pessoas
+                .FirstOrDefaultAsync(p => p.Id == dto.PessoaId && p.FamiliaId == _currentUser.FamiliaId);
 
             if (pessoa == null)
                 throw new Exception("Pessoa não encontrada.");
 
-            var categoria = await _context.Categorias.FindAsync(dto.CategoriaId);
+            var categoria = await _context.Categorias
+                .FirstOrDefaultAsync(c => c.Id == dto.CategoriaId && c.FamiliaId == _currentUser.FamiliaId);
 
             if (categoria == null)
                 throw new Exception("Categoria não encontrada.");
@@ -70,7 +75,8 @@ namespace ControleFamiliarAPI.Services.Implementations
                 Valor = dto.Valor,
                 Tipo = dto.Tipo,
                 PessoaId = dto.PessoaId,
-                CategoriaId = dto.CategoriaId
+                CategoriaId = dto.CategoriaId,
+                FamiliaId = _currentUser.FamiliaId
             };
 
             _context.Transacoes.Add(transacao);

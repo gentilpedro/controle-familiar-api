@@ -1,5 +1,6 @@
 using ControleFamiliarAPI.DTOs.Transacao;
 using ControleFamiliarAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
 
@@ -7,6 +8,7 @@ namespace ControleFamiliarAPI.Controllers
 {
     [ApiController]
     [Route("api/transacoes")]
+    [Authorize]
     public class TransacoesController : ControllerBase
     {
         private readonly ITransacaoService _service;
@@ -18,14 +20,14 @@ namespace ControleFamiliarAPI.Controllers
 
         // GET api/transacoes
         [HttpGet]
-        [Tags("Transações")]
-        [EndpointSummary("Lista todas as transações financeiras")]
+        [Tags("Transaï¿½ï¿½es")]
+        [EndpointSummary("Lista todas as transaï¿½ï¿½es financeiras")]
         [EndpointDescription("""
-            Retorna todas as transações registradas no sistema.
+            Retorna todas as transaï¿½ï¿½es registradas no sistema.
             
-            Cada transação contém:
-            - Identificador da transação
-            - Descrição
+            Cada transaï¿½ï¿½o contï¿½m:
+            - Identificador da transaï¿½ï¿½o
+            - Descriï¿½ï¿½o
             - Valor
             - Tipo (Receita ou Despesa)
             - Pessoa associada
@@ -39,23 +41,23 @@ namespace ControleFamiliarAPI.Controllers
 
         // POST api/transacoes
         [HttpPost]
-        [Tags("Transações")]
-        [EndpointSummary("Cria uma nova transação financeira")]
+        [Tags("Transaï¿½ï¿½es")]
+        [EndpointSummary("Cria uma nova transaï¿½ï¿½o financeira")]
         [EndpointDescription("""
-            Registra uma nova transação de receita ou despesa vinculada
+            Registra uma nova transaï¿½ï¿½o de receita ou despesa vinculada
             a uma pessoa e a uma categoria existente.
             
-            Dados necessários:
-            - Descrição da transação
+            Dados necessï¿½rios:
+            - Descriï¿½ï¿½o da transaï¿½ï¿½o
             - Valor (deve ser positivo)
-            - Tipo da transação (Receita ou Despesa)
+            - Tipo da transaï¿½ï¿½o (Receita ou Despesa)
             - Identificador da pessoa
             - Identificador da categoria
             
-            Regras de negócio:
+            Regras de negï¿½cio:
             - O valor deve ser maior que zero
             - Pessoas menores de 18 anos podem registrar apenas despesas
-            - A categoria deve ser compatível com o tipo da transação
+            - A categoria deve ser compatï¿½vel com o tipo da transaï¿½ï¿½o
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]

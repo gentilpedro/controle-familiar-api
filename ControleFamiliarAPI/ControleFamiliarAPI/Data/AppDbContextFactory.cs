@@ -17,7 +17,7 @@ namespace ControleGastos.Api.Data
 
             var connectionString = configuration.GetConnectionString("DefaultConnection");
 
-            optionsBuilder.UseNpgsql(connectionString);
+            optionsBuilder.UseSqlServer(connectionString);
 
             return new AppDbContext(optionsBuilder.Options);
         }

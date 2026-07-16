@@ -1,4 +1,5 @@
 using ControleFamiliarAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
 
@@ -6,6 +7,7 @@ namespace ControleFamiliarAPI.Controllers
 {
     [ApiController]
     [Route("api/relatorios")]
+    [Authorize]
     public class RelatoriosController : ControllerBase
     {
         private readonly IRelatorioService _relatorioService;
@@ -17,12 +19,12 @@ namespace ControleFamiliarAPI.Controllers
 
         // GET api/relatorios/totais-por-pessoa
         [HttpGet("totais-por-pessoa")]
-        [Tags("Relatórios")]
+        [Tags("Relatï¿½rios")]
         [EndpointSummary("Resumo financeiro por pessoa")]
         [EndpointDescription("""
             Retorna o total de receitas, despesas e saldo agrupado por pessoa.
             
-            Este endpoint é utilizado para geração de gráficos e dashboards.
+            Este endpoint ï¿½ utilizado para geraï¿½ï¿½o de grï¿½ficos e dashboards.
             
             Exemplo de resposta:
             
@@ -52,18 +54,18 @@ namespace ControleFamiliarAPI.Controllers
 
         // GET api/relatorios/totais-por-categoria
         [HttpGet("totais-por-categoria")]
-        [Tags("Relatórios")]
+        [Tags("Relatï¿½rios")]
         [EndpointSummary("Resumo de despesas por categoria")]
         [EndpointDescription("""
             Retorna o total de despesas agrupadas por categoria.
             
-            Utilizado para gráficos de distribuição de gastos.
+            Utilizado para grï¿½ficos de distribuiï¿½ï¿½o de gastos.
             
             Exemplo de resposta:
             
             [
               {
-                "categoria": "Alimentação",
+                "categoria": "Alimentaï¿½ï¿½o",
                 "total": 300
               },
               {
@@ -85,8 +87,8 @@ namespace ControleFamiliarAPI.Controllers
 
         // GET api/relatorios/excel-pessoa
         [HttpGet("excel-pessoa")]
-        [Tags("Relatórios")]
-        [EndpointSummary("Exporta relatório financeiro por pessoa (Excel)")]
+        [Tags("Relatï¿½rios")]
+        [EndpointSummary("Exporta relatï¿½rio financeiro por pessoa (Excel)")]
         [EndpointDescription("""
             Gera um arquivo Excel contendo:
             
@@ -95,7 +97,7 @@ namespace ControleFamiliarAPI.Controllers
             - Total de Despesas
             - Saldo
             
-            O arquivo é retornado como download no formato .xlsx.
+            O arquivo ï¿½ retornado como download no formato .xlsx.
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> ExcelPessoa()
@@ -111,15 +113,15 @@ namespace ControleFamiliarAPI.Controllers
 
         // GET api/relatorios/excel-categoria
         [HttpGet("excel-categoria")]
-        [Tags("Relatórios")]
-        [EndpointSummary("Exporta relatório de despesas por categoria (Excel)")]
+        [Tags("Relatï¿½rios")]
+        [EndpointSummary("Exporta relatï¿½rio de despesas por categoria (Excel)")]
         [EndpointDescription("""
             Gera um arquivo Excel contendo:
             
             - Categoria
             - Total gasto
             
-            O arquivo é retornado como download no formato .xlsx.
+            O arquivo ï¿½ retornado como download no formato .xlsx.
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> ExcelCategoria()
