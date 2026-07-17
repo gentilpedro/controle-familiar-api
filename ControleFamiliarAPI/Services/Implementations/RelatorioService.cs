@@ -1,9 +1,8 @@
 ﻿using ClosedXML.Excel;
-using ControleFamiliarAPI.DTO.Relatorios;
 using ControleFamiliarAPI.DTOs.Relatorios;
 using ControleFamiliarAPI.Services.Interfaces;
-using ControleGastos.Api.Data;
-using ControleGastos.Api.Models.Enums;
+using ControleFamiliarAPI.Data;
+using ControleFamiliarAPI.Models.Enums;
 using Microsoft.EntityFrameworkCore;
 
 public class RelatorioService : IRelatorioService

@@ -1,4 +1,4 @@
-﻿using ControleFamiliarAPI.DTO.Paginacao;
+﻿using ControleFamiliarAPI.DTOs.Paginacao;
 using ControleFamiliarAPI.DTOs.Transacao;
 
 namespace ControleFamiliarAPI.Services.Interfaces

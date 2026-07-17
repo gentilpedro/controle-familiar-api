@@ -1,4 +1,4 @@
-using ControleFamiliarAPI.DTO.Auth;
+using ControleFamiliarAPI.DTOs.Auth;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -19,7 +19,6 @@ namespace ControleFamiliarAPI.Controllers
             _service = service;
         }
 
-        // GET api/familia
         [HttpGet]
         [Tags("Família")]
         [EndpointSummary("Dados da família do usuário logado")]
@@ -29,7 +28,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<FamiliaDto>(await _service.Obter()));
         }
 
-        // DELETE api/familia/membros/{usuarioId}
         [HttpDelete("membros/{usuarioId}")]
         [Tags("Família")]
         [EndpointSummary("Remove um membro da família (admin)")]
@@ -51,7 +49,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<FamiliaDto>(await _service.RemoverMembro(usuarioId)));
         }
 
-        // POST api/familia/membros/{usuarioId}/promover
         [HttpPost("membros/{usuarioId}/promover")]
         [Tags("Família")]
         [EndpointSummary("Promove um membro a administrador (admin)")]
@@ -62,7 +59,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<FamiliaDto>(await _service.PromoverAdmin(usuarioId)));
         }
 
-        // POST api/familia/membros/{usuarioId}/rebaixar
         [HttpPost("membros/{usuarioId}/rebaixar")]
         [Tags("Família")]
         [EndpointSummary("Remove o status de administrador de um membro (admin)")]
@@ -75,7 +71,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<FamiliaDto>(await _service.RebaixarAdmin(usuarioId)));
         }
 
-        // POST api/familia/regenerar-codigo
         [HttpPost("regenerar-codigo")]
         [Tags("Família")]
         [EndpointSummary("Gera um novo código de convite, invalidando o antigo (admin)")]
@@ -86,7 +81,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<FamiliaDto>(await _service.RegenerarCodigoConvite()));
         }
 
-        // POST api/familia/convidar
         [HttpPost("convidar")]
         [Tags("Família")]
         [EndpointSummary("Envia um convite por e-mail para entrar na família (admin)")]

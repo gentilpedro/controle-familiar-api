@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Identity;
 
-namespace ControleGastos.Api.Models
+namespace ControleFamiliarAPI.Models
 {
     public class Usuario : IdentityUser<int>
     {

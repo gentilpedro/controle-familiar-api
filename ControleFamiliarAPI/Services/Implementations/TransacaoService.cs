@@ -1,10 +1,10 @@
-﻿using ControleFamiliarAPI.DTO.Paginacao;
+﻿using ControleFamiliarAPI.DTOs.Paginacao;
 using ControleFamiliarAPI.DTOs.Transacao;
 using ControleFamiliarAPI.Exceptions;
 using ControleFamiliarAPI.Services.Interfaces;
-using ControleGastos.Api.Data;
-using ControleGastos.Api.Models;
-using ControleGastos.Api.Models.Enums;
+using ControleFamiliarAPI.Data;
+using ControleFamiliarAPI.Models;
+using ControleFamiliarAPI.Models.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControleFamiliarAPI.Services.Implementations

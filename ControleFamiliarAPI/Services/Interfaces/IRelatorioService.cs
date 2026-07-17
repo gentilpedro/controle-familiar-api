@@ -1,5 +1,4 @@
-﻿using ControleFamiliarAPI.DTO.Relatorios;
-using ControleFamiliarAPI.DTOs.Relatorios;
+﻿using ControleFamiliarAPI.DTOs.Relatorios;
 
 namespace ControleFamiliarAPI.Services.Interfaces
 {

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ControleFamiliarAPI.DTO.Pessoa
+namespace ControleFamiliarAPI.DTOs.Pessoa
 {
     public class PessoaUpdateDto
     {

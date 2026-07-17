@@ -1,4 +1,4 @@
-﻿namespace ControleFamiliarAPI.DTOs
+﻿namespace ControleFamiliarAPI.DTOs.Pessoa
 {
     public class PessoaResponseDto
     {

@@ -17,7 +17,6 @@ namespace ControleFamiliarAPI.Controllers
             _relatorioService = relatorioService;
         }
 
-        // GET api/relatorios/totais-por-pessoa
         [HttpGet("totais-por-pessoa")]
         [Tags("Relat�rios")]
         [EndpointSummary("Resumo financeiro por pessoa")]
@@ -52,7 +51,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(result);
         }
 
-        // GET api/relatorios/totais-por-categoria
         [HttpGet("totais-por-categoria")]
         [Tags("Relat�rios")]
         [EndpointSummary("Resumo de despesas por categoria")]
@@ -85,7 +83,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(result);
         }
 
-        // GET api/relatorios/excel-pessoa
         [HttpGet("excel-pessoa")]
         [Tags("Relat�rios")]
         [EndpointSummary("Exporta relat�rio financeiro por pessoa (Excel)")]
@@ -111,7 +108,6 @@ namespace ControleFamiliarAPI.Controllers
             );
         }
 
-        // GET api/relatorios/excel-categoria
         [HttpGet("excel-categoria")]
         [Tags("Relat�rios")]
         [EndpointSummary("Exporta relat�rio de despesas por categoria (Excel)")]

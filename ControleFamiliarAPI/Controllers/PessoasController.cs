@@ -1,4 +1,4 @@
-using ControleFamiliarAPI.DTO.Pessoa;
+using ControleFamiliarAPI.DTOs.Pessoa;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -19,7 +19,6 @@ namespace ControleFamiliarAPI.Controllers
             _service = service;
         }
 
-        // GET api/pessoas
         [HttpGet]
         [Tags("Pessoas")]
         [EndpointSummary("Lista todas as pessoas cadastradas")]
@@ -40,7 +39,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(await _service.Listar());
         }
 
-        // POST api/pessoas
         [HttpPost]
         [Tags("Pessoas")]
         [EndpointSummary("Cria uma nova pessoa")]
@@ -64,7 +62,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<object>(pessoa));
         }
 
-        // PATCH api/pessoas/{id}
         [HttpPatch("{id}")]
         [Tags("Pessoas")]
         [EndpointSummary("Atualiza os dados de uma pessoa")]
@@ -80,7 +77,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<string>("Pessoa atualizada com sucesso"));
         }
 
-        // DELETE api/pessoas/{id}
         [HttpDelete("{id}")]
         [Tags("Pessoas")]
         [EndpointSummary("Remove uma pessoa do sistema")]

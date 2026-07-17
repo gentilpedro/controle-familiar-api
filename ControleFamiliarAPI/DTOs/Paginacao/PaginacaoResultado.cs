@@ -1,4 +1,4 @@
-namespace ControleFamiliarAPI.DTO.Paginacao
+namespace ControleFamiliarAPI.DTOs.Paginacao
 {
     public class PaginacaoResultado<T>
     {
