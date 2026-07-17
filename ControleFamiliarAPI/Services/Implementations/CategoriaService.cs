@@ -1,4 +1,5 @@
 ﻿using ControleFamiliarAPI.DTOs.Categoria;
+using ControleFamiliarAPI.Exceptions;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleGastos.Api.Data;
 using ControleGastos.Api.Models;
@@ -56,7 +57,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 .FirstOrDefaultAsync(c => c.Id == id && c.FamiliaId == _currentUser.FamiliaId);
 
             if (categoria == null)
-                throw new Exception("Categoria não encontrada.");
+                throw new NotFoundException("Categoria não encontrada.");
 
             _context.Categorias.Remove(categoria);
             await _context.SaveChangesAsync();

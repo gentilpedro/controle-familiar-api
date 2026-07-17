@@ -53,7 +53,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             var resultado = await _userManager.CreateAsync(usuario, dto.Senha);
 
             if (!resultado.Succeeded)
-                throw new Exception(string.Join(" ", resultado.Errors.Select(e => e.Description)));
+                throw new BusinessRuleException(string.Join(" ", resultado.Errors.Select(e => e.Description)));
 
             return await MontarResposta(usuario, familia);
         }
@@ -114,13 +114,13 @@ namespace ControleFamiliarAPI.Services.Implementations
         private async Task<Familia> EntrarEmFamilia(string? codigoConvite)
         {
             if (string.IsNullOrWhiteSpace(codigoConvite))
-                throw new Exception("Informe o código de convite da família.");
+                throw new BusinessRuleException("Informe o código de convite da família.");
 
             var familia = await _context.Familias
                 .FirstOrDefaultAsync(f => f.CodigoConvite == codigoConvite.Trim().ToUpperInvariant());
 
             if (familia == null)
-                throw new Exception("Código de convite inválido.");
+                throw new BusinessRuleException("Código de convite inválido.");
 
             return familia;
         }
