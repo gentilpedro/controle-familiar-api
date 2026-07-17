@@ -7,6 +7,7 @@ using ControleFamiliarAPI.Services;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleFamiliarAPI.Data;
 using ControleFamiliarAPI.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -20,7 +21,10 @@ namespace ControleFamiliarAPI.Services.Implementations
         private readonly SignInManager<Usuario> _signInManager;
         private readonly ICurrentUserService _currentUser;
         private readonly IFamiliaDtoFactory _familiaDtoFactory;
+        private readonly IEmailService _emailService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<AuthService> _logger;
 
         public AuthService(
             AppDbContext context,
@@ -28,14 +32,20 @@ namespace ControleFamiliarAPI.Services.Implementations
             SignInManager<Usuario> signInManager,
             ICurrentUserService currentUser,
             IFamiliaDtoFactory familiaDtoFactory,
-            IConfiguration configuration)
+            IEmailService emailService,
+            IHttpContextAccessor httpContextAccessor,
+            IConfiguration configuration,
+            ILogger<AuthService> logger)
         {
             _context = context;
             _userManager = userManager;
             _signInManager = signInManager;
             _currentUser = currentUser;
             _familiaDtoFactory = familiaDtoFactory;
+            _emailService = emailService;
+            _httpContextAccessor = httpContextAccessor;
             _configuration = configuration;
+            _logger = logger;
         }
 
         public async Task<AuthResponseDto> Registrar(RegistrarDto dto)
@@ -79,6 +89,12 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             await transacao.CommitAsync();
 
+            // Best-effort: e-mail de confirmação não é obrigatório pro cadastro
+            // funcionar (SMTP pode não estar configurado neste ambiente — mesma
+            // filosofia do convite de família). Uma falha aqui não deve derrubar
+            // um cadastro que já foi persistido com sucesso.
+            await EnviarEmailConfirmacaoAsync(usuario);
+
             return await MontarResposta(usuario, familia);
         }
 
@@ -117,15 +133,47 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             return new MeDto
             {
-                Usuario = new UsuarioDto
-                {
-                    Id = usuario.Id,
-                    Nome = usuario.Nome,
-                    Email = usuario.Email!,
-                    EhAdministrador = usuario.EhAdministrador
-                },
+                Usuario = MontarUsuarioDto(usuario),
                 Familia = await _familiaDtoFactory.MontarFamiliaDto(familia)
             };
+        }
+
+        public async Task Logout()
+        {
+            var httpContext = _httpContextAccessor.HttpContext
+                ?? throw new InvalidOperationException("Nenhum contexto HTTP disponível.");
+
+            var jti = httpContext.User.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+            var expClaim = httpContext.User.FindFirst(JwtRegisteredClaimNames.Exp)?.Value;
+
+            if (string.IsNullOrEmpty(jti) || !long.TryParse(expClaim, out var expUnix))
+                return;
+
+            // Limpeza oportunista dos já expirados: evita precisar de um job
+            // separado só pra isso — o volume aqui é só de tokens revogados
+            // antes de vencer, não de todo token emitido.
+            await _context.TokensRevogados
+                .Where(t => t.ExpiraEm < DateTime.UtcNow)
+                .ExecuteDeleteAsync();
+
+            _context.TokensRevogados.Add(new TokenRevogado
+            {
+                Jti = jti,
+                ExpiraEm = DateTimeOffset.FromUnixTimeSeconds(expUnix).UtcDateTime
+            });
+
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task ConfirmarEmail(int usuarioId, string token)
+        {
+            var usuario = await _userManager.FindByIdAsync(usuarioId.ToString())
+                ?? throw new NotFoundException("Usuário não encontrado.");
+
+            var resultado = await _userManager.ConfirmEmailAsync(usuario, token);
+
+            if (!resultado.Succeeded)
+                throw new BusinessRuleException("Link de confirmação inválido ou expirado.");
         }
 
         private async Task<Familia> CriarFamilia(string? nomeFamilia, string nomeUsuario)
@@ -164,15 +212,34 @@ namespace ControleFamiliarAPI.Services.Implementations
             {
                 Token = token,
                 ExpiraEm = expiraEm,
-                Usuario = new UsuarioDto
-                {
-                    Id = usuario.Id,
-                    Nome = usuario.Nome,
-                    Email = usuario.Email!,
-                    EhAdministrador = usuario.EhAdministrador
-                },
+                Usuario = MontarUsuarioDto(usuario),
                 Familia = await _familiaDtoFactory.MontarFamiliaDto(familia)
             };
+        }
+
+        private static UsuarioDto MontarUsuarioDto(Usuario usuario) => new()
+        {
+            Id = usuario.Id,
+            Nome = usuario.Nome,
+            Email = usuario.Email!,
+            EhAdministrador = usuario.EhAdministrador,
+            EmailConfirmado = usuario.EmailConfirmed
+        };
+
+        private async Task EnviarEmailConfirmacaoAsync(Usuario usuario)
+        {
+            try
+            {
+                var token = await _userManager.GenerateEmailConfirmationTokenAsync(usuario);
+                var frontendUrl = _configuration["Frontend:BaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
+                var link = $"{frontendUrl}/confirmar-email?usuarioId={usuario.Id}&token={Uri.EscapeDataString(token)}";
+
+                await _emailService.EnviarConfirmacaoEmail(usuario.Email!, usuario.Nome, link);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha ao enviar e-mail de confirmação para o usuário {UsuarioId}", usuario.Id);
+            }
         }
 
         private (string token, DateTime expiraEm) GerarToken(Usuario usuario)
@@ -180,14 +247,18 @@ namespace ControleFamiliarAPI.Services.Implementations
             var jwtConfig = _configuration.GetSection("Jwt");
             var chave = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig["Key"]!));
             var credenciais = new SigningCredentials(chave, SecurityAlgorithms.HmacSha256);
-            var expiraEm = DateTime.UtcNow.AddHours(double.Parse(jwtConfig["ExpiraHoras"] ?? "12"));
+            var expiraEm = DateTime.UtcNow.AddHours(double.Parse(jwtConfig["ExpiraHoras"] ?? "6"));
 
             var claims = new List<Claim>
             {
                 new(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
                 new(ClaimTypes.Email, usuario.Email!),
                 new(ClaimTypesPersonalizados.Nome, usuario.Nome),
-                new(ClaimTypesPersonalizados.FamiliaId, usuario.FamiliaId.ToString())
+                new(ClaimTypesPersonalizados.FamiliaId, usuario.FamiliaId.ToString()),
+                // Identificador único do token, verificado a cada requisição
+                // (Program.cs, OnTokenValidated) contra TokensRevogados —
+                // permite logout de verdade em vez de esperar o token vencer.
+                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
             var token = new JwtSecurityToken(

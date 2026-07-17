@@ -9,5 +9,9 @@ namespace ControleFamiliarAPI.Services.Interfaces
         Task<AuthResponseDto> Login(LoginDto dto);
 
         Task<MeDto> Me();
+
+        Task Logout();
+
+        Task ConfirmarEmail(int usuarioId, string token);
     }
 }

@@ -13,7 +13,7 @@ namespace ControleFamiliarAPI.DTOs.Auth
         public string Email { get; set; } = string.Empty;
 
         [Required]
-        [MinLength(6)]
+        [MinLength(8)]
         public string Senha { get; set; } = string.Empty;
 
         /// <summary>

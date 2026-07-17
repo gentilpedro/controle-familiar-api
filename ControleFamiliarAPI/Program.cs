@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.RateLimiting;
 using ControleFamiliarAPI.Middlewares;
@@ -37,8 +39,8 @@ if (!builder.Environment.IsEnvironment("Testing"))
 builder.Services
     .AddIdentityCore<Usuario>(options =>
     {
-        options.Password.RequiredLength = 6;
-        options.Password.RequireDigit = false;
+        options.Password.RequiredLength = 8;
+        options.Password.RequireDigit = true;
         options.Password.RequireNonAlphanumeric = false;
         options.Password.RequireUppercase = false;
         options.Password.RequireLowercase = false;
@@ -53,7 +55,12 @@ builder.Services
     })
     .AddRoles<IdentityRole<int>>()
     .AddEntityFrameworkStores<AppDbContext>()
-    .AddSignInManager();
+    .AddSignInManager()
+    // Sem isso, GenerateEmailConfirmationTokenAsync/ConfirmEmailAsync
+    // lançam "No IUserTwoFactorTokenProvider<TUser> named 'Default' is
+    // registered" — o provider "Default" (DataProtectorTokenProvider) só
+    // existe se for registrado explicitamente.
+    .AddDefaultTokenProviders();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -70,6 +77,25 @@ builder.Services
             ValidIssuer = jwtConfig["Issuer"],
             ValidAudience = jwtConfig["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig["Key"]!))
+        };
+
+        // Assinatura/validade válidas não bastam: um token revogado via
+        // logout (ver AuthService.Logout / TokensRevogados) precisa ser
+        // rejeitado mesmo antes de vencer naturalmente.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+                if (string.IsNullOrEmpty(jti))
+                    return;
+
+                var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                var revogado = await db.TokensRevogados.AnyAsync(t => t.Jti == jti);
+
+                if (revogado)
+                    context.Fail("Token revogado.");
+            }
         };
     });
 
@@ -175,7 +201,12 @@ app.Use(async (context, next) =>
         {
             var credenciais = Encoding.UTF8.GetString(Convert.FromBase64String(authHeader["Basic ".Length..]));
             var partes = credenciais.Split(':', 2);
-            autorizado = partes.Length == 2 && partes[0] == scalarUser && partes[1] == scalarPassword;
+
+            // FixedTimeEquals em vez de == para não vazar, via timing, quantos
+            // caracteres do usuário/senha estão corretos a cada tentativa.
+            autorizado = partes.Length == 2
+                && CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(partes[0]), Encoding.UTF8.GetBytes(scalarUser))
+                && CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(partes[1]), Encoding.UTF8.GetBytes(scalarPassword ?? string.Empty));
         }
 
         if (!autorizado)

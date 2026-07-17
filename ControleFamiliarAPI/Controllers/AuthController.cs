@@ -67,5 +67,37 @@ namespace ControleFamiliarAPI.Controllers
             var resultado = await _service.Me();
             return Ok(new ApiResponse<MeDto>(resultado));
         }
+
+        [HttpPost("logout")]
+        [Authorize]
+        [Tags("Autenticação")]
+        [EndpointSummary("Invalida o token usado nesta requisição")]
+        [EndpointDescription("""
+            Revoga o token JWT enviado nesta requisição — qualquer tentativa de
+            reutilizá-lo depois disso é rejeitada com 401, mesmo que ainda não
+            tenha expirado. Além de descartar o token no cliente, chame este
+            endpoint para garantir que ele pare de funcionar imediatamente
+            (útil se o dispositivo foi perdido, por exemplo).
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult> Logout()
+        {
+            await _service.Logout();
+            return Ok(new ApiResponse<string>("Sessão encerrada."));
+        }
+
+        [HttpGet("confirmar-email")]
+        [AllowAnonymous]
+        [Tags("Autenticação")]
+        [EndpointSummary("Confirma o e-mail do usuário a partir do link enviado no cadastro")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult> ConfirmarEmail([FromQuery] int usuarioId, [FromQuery] string token)
+        {
+            await _service.ConfirmarEmail(usuarioId, token);
+            return Ok(new ApiResponse<string>("E-mail confirmado com sucesso."));
+        }
     }
 }
