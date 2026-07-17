@@ -9,14 +9,13 @@ on:
 
 env:
   DOTNET_VERSION: "9.0.x"
-  SOLUTION_PATH: ControleFamiliarAPI/ControleFamiliarAPI.sln
-  PROJECT_PATH: ControleFamiliarAPI/ControleFamiliarAPI/ControleFamiliarAPI.csproj
-  PROJECT_DIR: ControleFamiliarAPI/ControleFamiliarAPI
+  SOLUTION_PATH: ControleFamiliarAPI.sln
+  PROJECT_PATH: ControleFamiliarAPI/ControleFamiliarAPI.csproj
   PUBLISH_OUTPUT: ./publish
 
 jobs:
   build_and_deploy:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -31,55 +30,39 @@ jobs:
       - name: Build
         run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
 
-      - name: Install EF Core tools
-        run: dotnet tool install --global dotnet-ef
+      # Diferente do padrão usado no Representantes_API: lá as migrations
+      # rodam aqui no CI porque o banco (Postgres) aceita conexão externa.
+      # O MSSQL free do MonsterASP.NET só aceita "Local access" — conexão
+      # de dentro do próprio datacenter deles — então um runner do GitHub
+      # nunca conseguiria alcançar o banco. Por isso a aplicação aplica as
+      # migrations sozinha ao subir (ver Program.cs), e esse passo não existe
+      # aqui.
 
-      # Aplica as migrations pendentes direto no banco de producao antes do
-      # deploy. Program.cs valida ConnectionStrings:DefaultConnection e
-      # Jwt:Key na inicializacao (mesmo o design-time host do dotnet-ef
-      # passa por esse trecho), por isso as duas env vars sao necessarias
-      # aqui, nao so no passo de publish.
-      - name: Apply database migrations
-        working-directory: ${{ env.PROJECT_DIR }}
-        env:
-          ConnectionStrings__DefaultConnection: ${{ secrets.DB_CONNECTION_STRING }}
-          Jwt__Key: ${{ secrets.JWT_KEY }}
-        run: dotnet ef database update --configuration Release
-
-      # win-x86 e o padrao recomendado pelo MonsterASP.NET (app pool 32-bit
-      # na maioria dos planos). Se o painel indicar app pool 64-bit, troque
-      # para win-x64 aqui.
       - name: Publish
-        run: >
-          dotnet publish ${{ env.PROJECT_PATH }}
-          --configuration Release
-          --output ${{ env.PUBLISH_OUTPUT }}
-          --runtime win-x86
-          --self-contained false
+        run: dotnet publish ${{ env.PROJECT_PATH }} -c Release -o ${{ env.PUBLISH_OUTPUT }}
 
-      # MonsterASP.NET e hospedagem compartilhada: o painel nao da acesso a
-      # variaveis de ambiente do servidor. Sem ASPNETCORE_ENVIRONMENT
-      # definido, o ASP.NET Core assume "Production" por padrao e carrega
-      # appsettings.Production.json automaticamente por cima do
-      # appsettings.json — e nesse arquivo publicado que os segredos sao
-      # gravados a cada deploy. O appsettings.Production.json versionado no
-      # repo so tem placeholders vazios; os valores reais nunca ficam no
-      # codigo-fonte.
+      # MonsterASP.NET é hospedagem compartilhada: o painel não dá acesso a
+      # variáveis de ambiente do servidor/IIS diretamente. Sem
+      # ASPNETCORE_ENVIRONMENT definido, o ASP.NET Core assume "Production"
+      # por padrão e carrega appsettings.Production.json por cima do
+      # appsettings.json. O appsettings.Production.json versionado no repo
+      # só tem placeholders vazios; aqui reescrevemos esse arquivo já
+      # publicado com os valores reais vindos dos GitHub Secrets — eles
+      # nunca ficam no código-fonte.
       - name: Injetar segredos de produção no appsettings.Production.json
-        shell: pwsh
-        env:
-          DB_CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
-          JWT_KEY: ${{ secrets.JWT_KEY }}
-          WEB_ORIGIN: ${{ secrets.WEB_ORIGIN }}
         run: |
-          $path = Join-Path $env:PUBLISH_OUTPUT "appsettings.Production.json"
-          $json = Get-Content $path -Raw | ConvertFrom-Json
-
-          $json.ConnectionStrings.DefaultConnection = $env:DB_CONNECTION_STRING
-          $json.Jwt.Key = $env:JWT_KEY
-          $json.Cors.AllowedOrigins = @($env:WEB_ORIGIN)
-
-          $json | ConvertTo-Json -Depth 10 | Set-Content $path
+          jq --arg cs "${{ secrets.DB_CONNECTION_STRING }}" \
+             --arg jwt "${{ secrets.JWT_KEY }}" \
+             --arg origin "${{ secrets.WEB_ORIGIN }}" \
+             --arg scalarUser "${{ secrets.SCALAR_USERNAME }}" \
+             --arg scalarPassword "${{ secrets.SCALAR_PASSWORD }}" \
+             '.ConnectionStrings.DefaultConnection = $cs
+              | .Jwt.Key = $jwt
+              | .Cors.AllowedOrigins = [$origin]
+              | .Scalar.Username = $scalarUser
+              | .Scalar.Password = $scalarPassword' \
+             ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json > ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json.tmp
+          mv ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json.tmp ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json
 
       # Libera os locks de arquivo do IIS antes de sobrescrever o app.
       - name: Take app offline (release IIS file locks)

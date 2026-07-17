@@ -38,7 +38,7 @@ Isso sobe um container SQL Server na porta `14330`. A senha do usuário `sa` vem
 A aplicação **não** roda com segredos hardcoded no `appsettings.json` — em desenvolvimento eles vêm do [User Secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) do .NET, que ficam fora do repositório:
 
 ```bash
-cd ControleFamiliarAPI/ControleFamiliarAPI
+cd ControleFamiliarAPI
 
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,14330;Database=ControleFinanceiro;User Id=sa;Password=<sua-senha-do-.env>;TrustServerCertificate=True;"
 
@@ -53,19 +53,15 @@ Se `ConnectionStrings:DefaultConnection` ou `Jwt:Key` não estiverem configurado
 dotnet restore
 ```
 
-## 4️⃣ Rodar as migrations
-
-```bash
-dotnet ef database update
-```
-
-## 5️⃣ Executar a aplicação
+## 4️⃣ Executar a aplicação
 
 ```bash
 dotnet run
 ```
 
-## 6️⃣ Acessar a documentação
+As migrations pendentes são aplicadas automaticamente quando a aplicação sobe (`Database.Migrate()` no `Program.cs`) — não precisa rodar `dotnet ef database update` manualmente, nem em dev nem em produção.
+
+## 5️⃣ Acessar a documentação
 
 Após rodar o projeto, acesse:
 
@@ -250,40 +246,46 @@ A documentação inclui:
 
 # 🚀 Deploy (CI/CD) para o MonsterASP.NET
 
-O workflow `.github/workflows/deploy-monsterasp.yml` builda, aplica as migrations pendentes no banco de produção, publica e faz deploy da API para o [MonsterASP.NET](https://monsterasp.net/) via FTP.
+O workflow `.github/workflows/deploy-monsterasp.yml` builda, publica e faz deploy da API para o [MonsterASP.NET](https://monsterasp.net/) via FTP — no mesmo padrão usado em outros projetos .NET hospedados lá.
 
 ### Quando roda
 
 * Automaticamente em todo push na branch `main`.
 * Manualmente, a qualquer momento, pelo botão **Run workflow** na aba *Actions* do GitHub.
 
-Branches de feature e Pull Requests **não** disparam deploy.
+Branches de feature e Pull Requests **não** disparam deploy. O job roda em `ubuntu-latest` — publicar para `win-x86`/IIS não exige que o runner seja Windows.
+
+### Migrations em produção
+
+Diferente de projetos com banco externo (ex.: Postgres em outro provedor), o MSSQL free do MonsterASP.NET só aceita **"Local access"**: conexão de dentro do próprio datacenter deles. Um runner do GitHub Actions nunca alcançaria esse banco, então não existe etapa de `dotnet ef database update` no workflow — a própria aplicação aplica as migrations pendentes sozinha ao subir (`Database.Migrate()` logo após `builder.Build()` no `Program.cs`).
 
 ### Pré-requisitos no painel do MonsterASP.NET
 
-1. Ativar o acesso **FTP** no painel de hospedagem.
-2. Ter um banco SQL Server de produção provisionado (no próprio MonsterASP.NET ou outro provedor) e a connection string em mãos.
+1. Ativar o acesso **FTP** no painel de hospedagem (aba *Deploy* do site).
+2. Ter um banco MSSQL provisionado (Databases → Create) e pegar a connection string em **Local access for websites** (é a que a aplicação, já rodando no site, consegue usar — a aba "Remote access" não serve aqui).
 
 ### Secrets necessários no repositório (Settings → Secrets and variables → Actions)
 
 | Secret | De onde vem |
 |---|---|
-| `FTP_SERVER` | Painel MonsterASP.NET (host do FTP) |
-| `FTP_USERNAME` | Painel MonsterASP.NET (usuário do FTP) |
-| `FTP_PASSWORD` | Painel MonsterASP.NET (senha do FTP) |
-| `DB_CONNECTION_STRING` | Connection string do SQL Server de produção |
+| `FTP_SERVER` | Painel MonsterASP.NET → site → FTP access → Hostname (ex.: `siteXXXXX.siteasp.net`) |
+| `FTP_USERNAME` | Painel MonsterASP.NET → site → FTP access → Login |
+| `FTP_PASSWORD` | Painel MonsterASP.NET → site → FTP access → Password |
+| `DB_CONNECTION_STRING` | Painel MonsterASP.NET → banco → Local access → connection string |
 | `JWT_KEY` | Uma chave longa e aleatória, só para produção (diferente da usada em dev) |
-| `WEB_ORIGIN` | URL de produção do frontend no Vercel (ex.: `https://controle-familiar-web.vercel.app`), usada para liberar o CORS |
+| `WEB_ORIGIN` | URL de produção do frontend no Vercel (ex.: `https://usefiscalhub.vercel.app`), usada para liberar o CORS |
+| `SCALAR_USERNAME` | Usuário para acessar a documentação (`/scalar`) em produção |
+| `SCALAR_PASSWORD` | Senha para acessar a documentação (`/scalar`) em produção |
 
 ### Como a configuração chega no servidor
 
-O MonsterASP.NET é hospedagem compartilhada: o painel não dá acesso a variáveis de ambiente do servidor/IIS diretamente. Sem `ASPNETCORE_ENVIRONMENT` definido, o ASP.NET Core assume `Production` por padrão e carrega `appsettings.Production.json` por cima do `appsettings.json`. O `appsettings.Production.json` versionado no repositório só tem placeholders vazios; a cada deploy o workflow reescreve esse arquivo já publicado com os valores reais (`ConnectionStrings:DefaultConnection`, `Jwt:Key`, `Cors:AllowedOrigins`) vindos dos GitHub Secrets — os valores nunca ficam no código-fonte.
+O MonsterASP.NET é hospedagem compartilhada: o painel não dá acesso a variáveis de ambiente do servidor/IIS diretamente. Sem `ASPNETCORE_ENVIRONMENT` definido, o ASP.NET Core assume `Production` por padrão e carrega `appsettings.Production.json` por cima do `appsettings.json`. O `appsettings.Production.json` versionado no repositório só tem placeholders vazios; a cada deploy o workflow reescreve esse arquivo já publicado (via `jq`) com os valores reais (`ConnectionStrings:DefaultConnection`, `Jwt:Key`, `Cors:AllowedOrigins`, `Scalar:Username`, `Scalar:Password`) vindos dos GitHub Secrets — os valores nunca ficam no código-fonte.
 
 Antes de subir os arquivos por FTP, o workflow publica um `app_offline.htm` (libera os locks de arquivo do IIS) e o remove no final, colocando a aplicação de volta no ar.
 
-### Runtime
+### Documentação (Scalar) em produção
 
-O publish usa `--runtime win-x86` (padrão recomendado pelo MonsterASP.NET, a maioria dos planos usa app pool de 32 bits). Se o seu plano usar app pool de 64 bits, troque para `win-x64` no workflow.
+Em desenvolvimento, `/scalar` e `/openapi` continuam livres. Em qualquer outro ambiente, essas rotas exigem HTTP Basic Auth (usuário/senha configurados por `Scalar:Username`/`Scalar:Password`) — sem isso, respondem 401 com o desafio de Basic Auth, nunca expondo a documentação sem login. O restante da API (`/api/*`) não é afetado por essa checagem.
 
 ---
 
