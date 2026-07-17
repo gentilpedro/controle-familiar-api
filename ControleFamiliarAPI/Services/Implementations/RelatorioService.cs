@@ -21,32 +21,53 @@ public class RelatorioService : IRelatorioService
     {
         var pessoas = await _context.Pessoas
             .Where(p => p.FamiliaId == _currentUser.FamiliaId)
-            .Select(p => new TotaisPessoaDto
-            {
-                Pessoa = p.Nome,
-
-                TotalReceitas = p.Transacoes
-                    .Where(t => t.Tipo == TipoTransacao.Receita)
-                    .Sum(t => (decimal?)t.Valor) ?? 0,
-
-                TotalDespesas = p.Transacoes
-                    .Where(t => t.Tipo == TipoTransacao.Despesa)
-                    .Sum(t => (decimal?)t.Valor) ?? 0
-            })
+            .Select(p => new { p.Id, p.Nome })
             .ToListAsync();
+
+        // Uma única agregação (GROUP BY PessoaId) em vez de duas subqueries
+        // correlacionadas por pessoa (uma pra receita, outra pra despesa) —
+        // mais barato conforme o volume de Transacoes cresce. Pessoas sem
+        // nenhuma transação não aparecem aqui de propósito (GroupBy só produz
+        // linha pra quem tem pelo menos uma) — o merge abaixo preenche 0/0
+        // pra elas, preservando o comportamento anterior.
+        var totaisPorPessoa = await _context.Transacoes
+            .Where(t => t.FamiliaId == _currentUser.FamiliaId)
+            .GroupBy(t => t.PessoaId)
+            .Select(g => new
+            {
+                PessoaId = g.Key,
+                TotalReceitas = g.Where(t => t.Tipo == TipoTransacao.Receita).Sum(t => (decimal?)t.Valor) ?? 0,
+                TotalDespesas = g.Where(t => t.Tipo == TipoTransacao.Despesa).Sum(t => (decimal?)t.Valor) ?? 0
+            })
+            .ToDictionaryAsync(x => x.PessoaId);
+
+        var resultado = pessoas
+            .Select(p =>
+            {
+                totaisPorPessoa.TryGetValue(p.Id, out var totais);
+                return new TotaisPessoaDto
+                {
+                    Pessoa = p.Nome,
+                    TotalReceitas = totais?.TotalReceitas ?? 0,
+                    TotalDespesas = totais?.TotalDespesas ?? 0
+                };
+            })
+            .ToList();
 
         return new ResumoPessoasDto
         {
-            Pessoas = pessoas,
-            TotalReceitas = pessoas.Sum(x => x.TotalReceitas),
-            TotalDespesas = pessoas.Sum(x => x.TotalDespesas)
+            Pessoas = resultado,
+            TotalReceitas = resultado.Sum(x => x.TotalReceitas),
+            TotalDespesas = resultado.Sum(x => x.TotalDespesas)
         };
     }
 
     public async Task<List<TotaisCategoriaDto>> TotaisPorCategoria()
     {
+        // Sem Include: o GroupBy(t => t.Categoria!.Descricao) já resolve o
+        // JOIN sozinho a partir do acesso à navegação — Include aqui seria
+        // ignorado pelo EF Core.
         return await _context.Transacoes
-            .Include(t => t.Categoria)
             .Where(t => t.FamiliaId == _currentUser.FamiliaId && t.Tipo == TipoTransacao.Despesa)
             .GroupBy(t => t.Categoria!.Descricao)
             .Select(g => new TotaisCategoriaDto

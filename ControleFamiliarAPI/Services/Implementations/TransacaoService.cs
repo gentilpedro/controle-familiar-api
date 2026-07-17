@@ -1,4 +1,5 @@
-﻿using ControleFamiliarAPI.DTOs.Transacao;
+﻿using ControleFamiliarAPI.DTO.Paginacao;
+using ControleFamiliarAPI.DTOs.Transacao;
 using ControleFamiliarAPI.Exceptions;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleGastos.Api.Data;
@@ -13,6 +14,8 @@ namespace ControleFamiliarAPI.Services.Implementations
     /// </summary>
     public class TransacaoService : ITransacaoService
     {
+        private const int TamanhoPaginaMaximo = 200;
+
         private readonly AppDbContext _context;
         private readonly ICurrentUserService _currentUser;
 
@@ -22,12 +25,23 @@ namespace ControleFamiliarAPI.Services.Implementations
             _currentUser = currentUser;
         }
 
-        public async Task<List<TransacaoResponseDto>> Listar()
+        public async Task<PaginacaoResultado<TransacaoResponseDto>> Listar(int pagina, int tamanhoPagina)
         {
-            return await _context.Transacoes
+            pagina = Math.Max(pagina, 1);
+            tamanhoPagina = Math.Clamp(tamanhoPagina, 1, TamanhoPaginaMaximo);
+
+            // Sem Include: o Select abaixo já projeta só os campos escalares de
+            // Pessoa/Categoria, então o EF Core gera o JOIN sozinho a partir da
+            // navegação — Include aqui seria ignorado e só confundiria a leitura.
+            var query = _context.Transacoes
                 .Where(t => t.FamiliaId == _currentUser.FamiliaId)
-                .Include(t => t.Pessoa)
-                .Include(t => t.Categoria)
+                .OrderByDescending(t => t.Id);
+
+            var totalItens = await query.CountAsync();
+
+            var itens = await query
+                .Skip((pagina - 1) * tamanhoPagina)
+                .Take(tamanhoPagina)
                 .Select(t => new TransacaoResponseDto
                 {
                     Id = t.Id,
@@ -38,6 +52,14 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Categoria = t.Categoria!.Descricao
                 })
                 .ToListAsync();
+
+            return new PaginacaoResultado<TransacaoResponseDto>
+            {
+                Itens = itens,
+                PaginaAtual = pagina,
+                TamanhoPagina = tamanhoPagina,
+                TotalItens = totalItens
+            };
         }
 
         public async Task Criar(TransacaoCreateDto dto)
