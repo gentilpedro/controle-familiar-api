@@ -120,6 +120,17 @@ namespace ControleGastos.Api.Data
                       .WithMany()
                       .HasForeignKey(t => t.FamiliaId)
                       .OnDelete(DeleteBehavior.Restrict);
+
+                // Índices compostos usados pelo RelatorioService, que sempre
+                // filtra por FamiliaId/PessoaId + Tipo. Sem eles, o SQL Server
+                // cai pra Key Lookup linha a linha (ou scan) pra buscar
+                // Valor/CategoriaId, já que os índices de FK criados por
+                // convenção só cobrem uma coluna.
+                entity.HasIndex(t => new { t.FamiliaId, t.Tipo })
+                      .IncludeProperties(t => new { t.Valor, t.CategoriaId });
+
+                entity.HasIndex(t => new { t.PessoaId, t.Tipo })
+                      .IncludeProperties(t => new { t.Valor });
             });
         }
     }
