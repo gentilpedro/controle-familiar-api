@@ -16,17 +16,20 @@ namespace ControleFamiliarAPI.Services.Implementations
     {
         private readonly AppDbContext _context;
         private readonly UserManager<Usuario> _userManager;
+        private readonly SignInManager<Usuario> _signInManager;
         private readonly ICurrentUserService _currentUser;
         private readonly IConfiguration _configuration;
 
         public AuthService(
             AppDbContext context,
             UserManager<Usuario> userManager,
+            SignInManager<Usuario> signInManager,
             ICurrentUserService currentUser,
             IConfiguration configuration)
         {
             _context = context;
             _userManager = userManager;
+            _signInManager = signInManager;
             _currentUser = currentUser;
             _configuration = configuration;
         }
@@ -65,9 +68,16 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (usuario == null)
                 throw new UnauthorizedException("Email ou senha inválidos.");
 
-            var senhaValida = await _userManager.CheckPasswordAsync(usuario, dto.Senha);
+            // lockoutOnFailure: true faz o Identity contar tentativas erradas e
+            // bloquear a conta temporariamente após o limite configurado em
+            // Program.cs (options.Lockout), sem depender de nada além do que já
+            // vem pronto no UserManager/SignInManager.
+            var resultado = await _signInManager.CheckPasswordSignInAsync(usuario, dto.Senha, lockoutOnFailure: true);
 
-            if (!senhaValida)
+            if (resultado.IsLockedOut)
+                throw new UnauthorizedException("Conta temporariamente bloqueada por excesso de tentativas. Tente novamente mais tarde.");
+
+            if (!resultado.Succeeded)
                 throw new UnauthorizedException("Email ou senha inválidos.");
 
             var familia = await _context.Familias.FindAsync(usuario.FamiliaId)

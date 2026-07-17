@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using ControleFamiliarAPI.Middlewares;
 using ControleFamiliarAPI.Services.Implementations;
 using ControleFamiliarAPI.Services.Interfaces;
@@ -6,6 +7,7 @@ using ControleGastos.Api.Data;
 using ControleGastos.Api.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -35,9 +37,17 @@ builder.Services
         options.Password.RequireUppercase = false;
         options.Password.RequireLowercase = false;
         options.User.RequireUniqueEmail = true;
+
+        // Bloqueia a conta temporariamente após tentativas de login seguidas
+        // com senha errada — sem isso, nada impede brute force contra
+        // /api/auth/login além do rate limiter por IP configurado abaixo.
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.AllowedForNewUsers = true;
     })
     .AddRoles<IdentityRole<int>>()
-    .AddEntityFrameworkStores<AppDbContext>();
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddSignInManager();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -84,6 +94,23 @@ builder.Services.AddCors(options =>
         });
 });
 
+// Limita tentativas de login/registro por IP — sem isso, nada impede
+// brute force ou cadastro em massa contra /api/auth/*.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
+
 builder.Services.AddOpenApi(options =>
 {
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
@@ -104,6 +131,11 @@ builder.Services.AddOpenApi();
 
 
 var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+    app.UseHsts();
+
+app.UseHttpsRedirection();
 
 // Aplica as migrations pendentes quando a aplicação sobe. O MSSQL free do
 // MonsterASP.NET só aceita conexão de dentro do próprio datacenter deles
@@ -153,6 +185,7 @@ app.MapScalarApiReference();
 
 app.UseMiddleware<ErrorMiddleware>();
 app.UseCors("AllowReact");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
