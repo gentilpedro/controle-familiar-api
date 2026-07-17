@@ -13,7 +13,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             _configuration = configuration;
         }
 
-        public Task EnviarConviteFamilia(string destinatario, string nomeFamilia, string codigoConvite, string convidadoPor)
+        public Task EnviarConviteFamilia(string destinatario, string nomeFamilia, string codigoConvite, string convidadoPor, CancellationToken cancellationToken = default)
         {
             var frontendUrl = ObterFrontendUrl();
             var linkConvite = $"{frontendUrl}/registrar?codigo={codigoConvite}";
@@ -34,10 +34,10 @@ namespace ControleFamiliarAPI.Services.Implementations
                 <p>Ou clique direto no link: <a href="{linkConvite}">{linkConvite}</a></p>
                 """;
 
-            return EnviarAsync(destinatario, assunto, corpo);
+            return EnviarAsync(destinatario, assunto, corpo, cancellationToken);
         }
 
-        public Task EnviarConfirmacaoEmail(string destinatario, string nomeUsuario, string linkConfirmacao)
+        public Task EnviarConfirmacaoEmail(string destinatario, string nomeUsuario, string linkConfirmacao, CancellationToken cancellationToken = default)
         {
             var nomeSeguro = WebUtility.HtmlEncode(nomeUsuario);
 
@@ -49,13 +49,13 @@ namespace ControleFamiliarAPI.Services.Implementations
                 <p>Se você não criou uma conta no Controle Financeiro, pode ignorar este e-mail.</p>
                 """;
 
-            return EnviarAsync(destinatario, assunto, corpo);
+            return EnviarAsync(destinatario, assunto, corpo, cancellationToken);
         }
 
         private string ObterFrontendUrl() =>
             _configuration["Frontend:BaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
 
-        private async Task EnviarAsync(string destinatario, string assunto, string corpoHtml)
+        private async Task EnviarAsync(string destinatario, string assunto, string corpoHtml, CancellationToken cancellationToken)
         {
             var smtp = _configuration.GetSection("Smtp");
             var host = smtp["Host"];
@@ -85,7 +85,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 Credentials = new NetworkCredential(smtp["Username"], smtp["Password"])
             };
 
-            await client.SendMailAsync(mensagem);
+            await client.SendMailAsync(mensagem, cancellationToken);
         }
     }
 }

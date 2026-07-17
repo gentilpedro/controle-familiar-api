@@ -1,4 +1,4 @@
-﻿using ControleFamiliarAPI.DTOs.Paginacao;
+using ControleFamiliarAPI.DTOs.Paginacao;
 using ControleFamiliarAPI.DTOs.Transacao;
 using ControleFamiliarAPI.Exceptions;
 using ControleFamiliarAPI.Services.Interfaces;
@@ -25,7 +25,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             _currentUser = currentUser;
         }
 
-        public async Task<PaginacaoResultado<TransacaoResponseDto>> Listar(int pagina, int tamanhoPagina)
+        public async Task<PaginacaoResultado<TransacaoResponseDto>> Listar(int pagina, int tamanhoPagina, CancellationToken cancellationToken = default)
         {
             pagina = Math.Max(pagina, 1);
             tamanhoPagina = Math.Clamp(tamanhoPagina, 1, TamanhoPaginaMaximo);
@@ -37,7 +37,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 .Where(t => t.FamiliaId == _currentUser.FamiliaId)
                 .OrderByDescending(t => t.Id);
 
-            var totalItens = await query.CountAsync();
+            var totalItens = await query.CountAsync(cancellationToken);
 
             var itens = await query
                 .Skip((pagina - 1) * tamanhoPagina)
@@ -51,7 +51,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Pessoa = t.Pessoa!.Nome,
                     Categoria = t.Categoria!.Descricao
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             return new PaginacaoResultado<TransacaoResponseDto>
             {
@@ -62,19 +62,19 @@ namespace ControleFamiliarAPI.Services.Implementations
             };
         }
 
-        public async Task Criar(TransacaoCreateDto dto)
+        public async Task Criar(TransacaoCreateDto dto, CancellationToken cancellationToken = default)
         {
             if (dto.Valor <= 0)
                 throw new BusinessRuleException("O valor deve ser positivo.");
 
             var pessoa = await _context.Pessoas
-                .FirstOrDefaultAsync(p => p.Id == dto.PessoaId && p.FamiliaId == _currentUser.FamiliaId);
+                .FirstOrDefaultAsync(p => p.Id == dto.PessoaId && p.FamiliaId == _currentUser.FamiliaId, cancellationToken);
 
             if (pessoa == null)
                 throw new NotFoundException("Pessoa não encontrada.");
 
             var categoria = await _context.Categorias
-                .FirstOrDefaultAsync(c => c.Id == dto.CategoriaId && c.FamiliaId == _currentUser.FamiliaId);
+                .FirstOrDefaultAsync(c => c.Id == dto.CategoriaId && c.FamiliaId == _currentUser.FamiliaId, cancellationToken);
 
             if (categoria == null)
                 throw new NotFoundException("Categoria não encontrada.");
@@ -104,7 +104,7 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             _context.Transacoes.Add(transacao);
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
         }
     }
 }

@@ -1,11 +1,11 @@
-﻿using ControleFamiliarAPI.DTOs.Categoria;
+using ControleFamiliarAPI.DTOs.Categoria;
 
 namespace ControleFamiliarAPI.Services.Interfaces
 {
     public interface ICategoriaService
     {
-        Task<List<CategoriaResponseDto>> Listar();
-        Task<CategoriaResponseDto> Criar(CategoriaCreateDto dto);
-        Task Deletar(int id);
+        Task<List<CategoriaResponseDto>> Listar(CancellationToken cancellationToken = default);
+        Task<CategoriaResponseDto> Criar(CategoriaCreateDto dto, CancellationToken cancellationToken = default);
+        Task Deletar(int id, CancellationToken cancellationToken = default);
     }
 }

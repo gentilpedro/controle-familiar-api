@@ -1,4 +1,4 @@
-﻿using ControleFamiliarAPI.DTOs.Categoria;
+using ControleFamiliarAPI.DTOs.Categoria;
 using ControleFamiliarAPI.Exceptions;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleFamiliarAPI.Data;
@@ -18,7 +18,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             _currentUser = currentUser;
         }
 
-        public async Task<List<CategoriaResponseDto>> Listar()
+        public async Task<List<CategoriaResponseDto>> Listar(CancellationToken cancellationToken = default)
         {
             return await _context.Categorias
                 .Where(c => c.FamiliaId == _currentUser.FamiliaId)
@@ -28,10 +28,10 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Descricao = c.Descricao,
                     Finalidade = c.Finalidade
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
-        public async Task<CategoriaResponseDto> Criar(CategoriaCreateDto dto)
+        public async Task<CategoriaResponseDto> Criar(CategoriaCreateDto dto, CancellationToken cancellationToken = default)
         {
             var categoria = new Categoria
             {
@@ -41,7 +41,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             };
 
             _context.Categorias.Add(categoria);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
             return new CategoriaResponseDto
             {
@@ -51,16 +51,16 @@ namespace ControleFamiliarAPI.Services.Implementations
             };
         }
 
-        public async Task Deletar(int id)
+        public async Task Deletar(int id, CancellationToken cancellationToken = default)
         {
             var categoria = await _context.Categorias
-                .FirstOrDefaultAsync(c => c.Id == id && c.FamiliaId == _currentUser.FamiliaId);
+                .FirstOrDefaultAsync(c => c.Id == id && c.FamiliaId == _currentUser.FamiliaId, cancellationToken);
 
             if (categoria == null)
                 throw new NotFoundException("Categoria não encontrada.");
 
             _context.Categorias.Remove(categoria);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
         }
     }
 }

@@ -18,7 +18,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             _currentUser = currentUser;
         }
 
-        public async Task<List<PessoaResponseDto>> Listar()
+        public async Task<List<PessoaResponseDto>> Listar(CancellationToken cancellationToken = default)
         {
             return await _context.Pessoas
                 .Where(p => p.FamiliaId == _currentUser.FamiliaId)
@@ -28,10 +28,10 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Nome = p.Nome,
                     Idade = p.Idade
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
-        public async Task<PessoaResponseDto> Criar(PessoaCreateDto dto)
+        public async Task<PessoaResponseDto> Criar(PessoaCreateDto dto, CancellationToken cancellationToken = default)
         {
             var pessoa = new Pessoa
             {
@@ -42,7 +42,7 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             _context.Pessoas.Add(pessoa);
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
             return new PessoaResponseDto
             {
@@ -52,10 +52,10 @@ namespace ControleFamiliarAPI.Services.Implementations
             };
         }
 
-        public async Task Atualizar(int id, PessoaUpdateDto dto)
+        public async Task Atualizar(int id, PessoaUpdateDto dto, CancellationToken cancellationToken = default)
         {
             var pessoa = await _context.Pessoas
-                .FirstOrDefaultAsync(p => p.Id == id && p.FamiliaId == _currentUser.FamiliaId);
+                .FirstOrDefaultAsync(p => p.Id == id && p.FamiliaId == _currentUser.FamiliaId, cancellationToken);
 
             if (pessoa == null)
                 throw new NotFoundException("Pessoa não encontrada.");
@@ -66,20 +66,20 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (dto.Idade.HasValue)
                 pessoa.Idade = dto.Idade.Value;
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task Deletar(int id)
+        public async Task Deletar(int id, CancellationToken cancellationToken = default)
         {
             var pessoa = await _context.Pessoas
-                .FirstOrDefaultAsync(p => p.Id == id && p.FamiliaId == _currentUser.FamiliaId);
+                .FirstOrDefaultAsync(p => p.Id == id && p.FamiliaId == _currentUser.FamiliaId, cancellationToken);
 
             if (pessoa == null)
                 throw new NotFoundException("Pessoa não encontrada.");
 
             _context.Pessoas.Remove(pessoa);
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
         }
     }
 }

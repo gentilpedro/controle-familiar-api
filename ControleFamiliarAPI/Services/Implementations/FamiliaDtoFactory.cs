@@ -20,7 +20,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             _userManager = userManager;
         }
 
-        public async Task<string> GerarCodigoConviteUnico()
+        public async Task<string> GerarCodigoConviteUnico(CancellationToken cancellationToken = default)
         {
             string codigo;
 
@@ -28,18 +28,18 @@ namespace ControleFamiliarAPI.Services.Implementations
             {
                 codigo = Guid.NewGuid().ToString("N")[..TamanhoCodigoConvite].ToUpperInvariant();
             }
-            while (await _context.Familias.AnyAsync(f => f.CodigoConvite == codigo));
+            while (await _context.Familias.AnyAsync(f => f.CodigoConvite == codigo, cancellationToken));
 
             return codigo;
         }
 
-        public async Task<FamiliaDto> MontarFamiliaDto(Familia familia)
+        public async Task<FamiliaDto> MontarFamiliaDto(Familia familia, CancellationToken cancellationToken = default)
         {
             var membros = await _userManager.Users
                 .Where(u => u.FamiliaId == familia.Id)
                 .OrderBy(u => u.Id)
                 .Select(u => new MembroDto { Id = u.Id, Nome = u.Nome, EhAdministrador = u.EhAdministrador })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             return new FamiliaDto
             {

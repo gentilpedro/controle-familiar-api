@@ -23,9 +23,9 @@ namespace ControleFamiliarAPI.Controllers
         [Tags("Família")]
         [EndpointSummary("Dados da família do usuário logado")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult> Obter()
+        public async Task<ActionResult> Obter(CancellationToken cancellationToken)
         {
-            return Ok(new ApiResponse<FamiliaDto>(await _service.Obter()));
+            return Ok(new ApiResponse<FamiliaDto>(await _service.Obter(cancellationToken)));
         }
 
         [HttpDelete("membros/{usuarioId}")]
@@ -44,9 +44,9 @@ namespace ControleFamiliarAPI.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult> RemoverMembro(int usuarioId)
+        public async Task<ActionResult> RemoverMembro(int usuarioId, CancellationToken cancellationToken)
         {
-            return Ok(new ApiResponse<FamiliaDto>(await _service.RemoverMembro(usuarioId)));
+            return Ok(new ApiResponse<FamiliaDto>(await _service.RemoverMembro(usuarioId, cancellationToken)));
         }
 
         [HttpPost("membros/{usuarioId}/promover")]
@@ -54,9 +54,9 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Promove um membro a administrador (admin)")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult> Promover(int usuarioId)
+        public async Task<ActionResult> Promover(int usuarioId, CancellationToken cancellationToken)
         {
-            return Ok(new ApiResponse<FamiliaDto>(await _service.PromoverAdmin(usuarioId)));
+            return Ok(new ApiResponse<FamiliaDto>(await _service.PromoverAdmin(usuarioId, cancellationToken)));
         }
 
         [HttpPost("membros/{usuarioId}/rebaixar")]
@@ -66,9 +66,9 @@ namespace ControleFamiliarAPI.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult> Rebaixar(int usuarioId)
+        public async Task<ActionResult> Rebaixar(int usuarioId, CancellationToken cancellationToken)
         {
-            return Ok(new ApiResponse<FamiliaDto>(await _service.RebaixarAdmin(usuarioId)));
+            return Ok(new ApiResponse<FamiliaDto>(await _service.RebaixarAdmin(usuarioId, cancellationToken)));
         }
 
         [HttpPost("regenerar-codigo")]
@@ -76,9 +76,9 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Gera um novo código de convite, invalidando o antigo (admin)")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult> RegenerarCodigo()
+        public async Task<ActionResult> RegenerarCodigo(CancellationToken cancellationToken)
         {
-            return Ok(new ApiResponse<FamiliaDto>(await _service.RegenerarCodigoConvite()));
+            return Ok(new ApiResponse<FamiliaDto>(await _service.RegenerarCodigoConvite(cancellationToken)));
         }
 
         [HttpPost("convidar")]
@@ -87,9 +87,9 @@ namespace ControleFamiliarAPI.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult> ConvidarPorEmail(ConvidarDto dto)
+        public async Task<ActionResult> ConvidarPorEmail(ConvidarDto dto, CancellationToken cancellationToken)
         {
-            await _service.ConvidarPorEmail(dto.Email);
+            await _service.ConvidarPorEmail(dto.Email, cancellationToken);
             return Ok(new ApiResponse<string>("Convite enviado."));
         }
     }

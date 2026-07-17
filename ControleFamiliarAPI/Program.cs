@@ -105,6 +105,15 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
 
+// Cache curto usado pelo RelatorioService (ver comentário lá) — evita
+// recalcular os totais da família do zero em chamadas consecutivas.
+builder.Services.AddMemoryCache();
+
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
+
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IFamiliaDtoFactory, FamiliaDtoFactory>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -167,6 +176,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 
 app.UseHttpsRedirection();
+app.UseResponseCompression();
 
 // Aplica as migrations pendentes quando a aplicação sobe. O MSSQL free do
 // MonsterASP.NET só aceita conexão de dentro do próprio datacenter deles

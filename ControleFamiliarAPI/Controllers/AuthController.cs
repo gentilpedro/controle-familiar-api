@@ -37,9 +37,9 @@ namespace ControleFamiliarAPI.Controllers
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult> Registrar(RegistrarDto dto)
+        public async Task<ActionResult> Registrar(RegistrarDto dto, CancellationToken cancellationToken)
         {
-            var resultado = await _service.Registrar(dto);
+            var resultado = await _service.Registrar(dto, cancellationToken);
             return Ok(new ApiResponse<AuthResponseDto>(resultado));
         }
 
@@ -50,9 +50,9 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Autentica um usuário existente")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult> Login(LoginDto dto)
+        public async Task<ActionResult> Login(LoginDto dto, CancellationToken cancellationToken)
         {
-            var resultado = await _service.Login(dto);
+            var resultado = await _service.Login(dto, cancellationToken);
             return Ok(new ApiResponse<AuthResponseDto>(resultado));
         }
 
@@ -62,9 +62,9 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Retorna os dados do usuário autenticado e da sua família")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult> Me()
+        public async Task<ActionResult> Me(CancellationToken cancellationToken)
         {
-            var resultado = await _service.Me();
+            var resultado = await _service.Me(cancellationToken);
             return Ok(new ApiResponse<MeDto>(resultado));
         }
 
@@ -81,9 +81,9 @@ namespace ControleFamiliarAPI.Controllers
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult> Logout()
+        public async Task<ActionResult> Logout(CancellationToken cancellationToken)
         {
-            await _service.Logout();
+            await _service.Logout(cancellationToken);
             return Ok(new ApiResponse<string>("Sessão encerrada."));
         }
 
@@ -94,9 +94,9 @@ namespace ControleFamiliarAPI.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult> ConfirmarEmail([FromQuery] int usuarioId, [FromQuery] string token)
+        public async Task<ActionResult> ConfirmarEmail([FromQuery] int usuarioId, [FromQuery] string token, CancellationToken cancellationToken)
         {
-            await _service.ConfirmarEmail(usuarioId, token);
+            await _service.ConfirmarEmail(usuarioId, token, cancellationToken);
             return Ok(new ApiResponse<string>("E-mail confirmado com sucesso."));
         }
     }
