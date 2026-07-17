@@ -1,6 +1,7 @@
 using ControleFamiliarAPI.DTO.Pessoa;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
 
@@ -8,6 +9,7 @@ namespace ControleFamiliarAPI.Controllers
 {
     [ApiController]
     [Route("api/pessoas")]
+    [Authorize]
     public class PessoasController : ControllerBase
     {
         private readonly IPessoaService _service;
@@ -25,12 +27,12 @@ namespace ControleFamiliarAPI.Controllers
             Retorna todas as pessoas registradas no sistema.
             
             Cada pessoa possui:
-            - Identificador único
+            - Identificador ï¿½nico
             - Nome
             - Idade
             
-            Essas informações são utilizadas para vincular transações financeiras
-            ao responsável pela receita ou despesa.
+            Essas informaï¿½ï¿½es sï¿½o utilizadas para vincular transaï¿½ï¿½es financeiras
+            ao responsï¿½vel pela receita ou despesa.
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult> Listar()
@@ -43,16 +45,16 @@ namespace ControleFamiliarAPI.Controllers
         [Tags("Pessoas")]
         [EndpointSummary("Cria uma nova pessoa")]
         [EndpointDescription("""
-            Registra uma nova pessoa que poderá realizar transações financeiras.
+            Registra uma nova pessoa que poderï¿½ realizar transaï¿½ï¿½es financeiras.
             
-            Dados necessários:
-            - Nome (máximo de 200 caracteres)
+            Dados necessï¿½rios:
+            - Nome (mï¿½ximo de 200 caracteres)
             - Idade
             
-            Regras de negócio:
-            - Pessoas menores de 18 anos não podem registrar receitas
-            - Ao remover uma pessoa, todas as transações associadas a ela
-              serão removidas automaticamente
+            Regras de negï¿½cio:
+            - Pessoas menores de 18 anos nï¿½o podem registrar receitas
+            - Ao remover uma pessoa, todas as transaï¿½ï¿½es associadas a ela
+              serï¿½o removidas automaticamente
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -67,7 +69,7 @@ namespace ControleFamiliarAPI.Controllers
         [Tags("Pessoas")]
         [EndpointSummary("Atualiza os dados de uma pessoa")]
         [EndpointDescription("""
-            Permite alterar o nome ou idade de uma pessoa já cadastrada.
+            Permite alterar o nome ou idade de uma pessoa jï¿½ cadastrada.
             O identificador da pessoa deve ser informado na rota.
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -83,11 +85,11 @@ namespace ControleFamiliarAPI.Controllers
         [Tags("Pessoas")]
         [EndpointSummary("Remove uma pessoa do sistema")]
         [EndpointDescription("""
-            Remove uma pessoa cadastrada através do seu identificador.
+            Remove uma pessoa cadastrada atravï¿½s do seu identificador.
             
             Importante:
-            - Todas as transações associadas a essa pessoa
-              serão removidas automaticamente do sistema
+            - Todas as transaï¿½ï¿½es associadas a essa pessoa
+              serï¿½o removidas automaticamente do sistema
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

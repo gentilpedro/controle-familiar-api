@@ -1,5 +1,6 @@
 ﻿using ControleFamiliarAPI.DTOs.Categoria;
 using ControleFamiliarAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
 
@@ -8,6 +9,7 @@ namespace ControleFamiliarAPI.Controllers
 
     [ApiController]
     [Route("api/categorias")]
+    [Authorize]
     public class CategoriasController : ControllerBase
     {
         private readonly ICategoriaService _service;
