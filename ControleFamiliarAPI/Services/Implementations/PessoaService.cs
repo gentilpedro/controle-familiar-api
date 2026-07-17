@@ -1,5 +1,6 @@
 using ControleFamiliarAPI.DTO.Pessoa;
 using ControleFamiliarAPI.DTOs;
+using ControleFamiliarAPI.Exceptions;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleGastos.Api.Data;
 using ControleGastos.Api.Models;
@@ -58,7 +59,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 .FirstOrDefaultAsync(p => p.Id == id && p.FamiliaId == _currentUser.FamiliaId);
 
             if (pessoa == null)
-                throw new Exception("Pessoa n�o encontrada");
+                throw new NotFoundException("Pessoa não encontrada.");
 
             if (!string.IsNullOrEmpty(dto.Nome))
                 pessoa.Nome = dto.Nome;
@@ -75,7 +76,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 .FirstOrDefaultAsync(p => p.Id == id && p.FamiliaId == _currentUser.FamiliaId);
 
             if (pessoa == null)
-                throw new Exception("Pessoa n�o encontrada");
+                throw new NotFoundException("Pessoa não encontrada.");
 
             _context.Pessoas.Remove(pessoa);
 

@@ -37,7 +37,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             await GarantirAdmin();
 
             if (usuarioId == _currentUser.UsuarioId)
-                throw new Exception("Você não pode remover a si mesmo. Peça a outro administrador.");
+                throw new BusinessRuleException("Você não pode remover a si mesmo. Peça a outro administrador.");
 
             var membro = await BuscarMembro(usuarioId);
 
@@ -102,7 +102,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             var admin = await GarantirAdmin();
 
             if (string.IsNullOrWhiteSpace(email))
-                throw new Exception("Informe um e-mail válido.");
+                throw new BusinessRuleException("Informe um e-mail válido.");
 
             var familia = await BuscarFamiliaAtual();
 
@@ -124,7 +124,7 @@ namespace ControleFamiliarAPI.Services.Implementations
         {
             return await _userManager.Users
                 .FirstOrDefaultAsync(u => u.Id == usuarioId && u.FamiliaId == _currentUser.FamiliaId)
-                ?? throw new Exception("Membro não encontrado nesta família.");
+                ?? throw new NotFoundException("Membro não encontrado nesta família.");
         }
 
         private async Task<Familia> BuscarFamiliaAtual()
@@ -149,7 +149,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 .CountAsync(u => u.FamiliaId == _currentUser.FamiliaId && u.EhAdministrador && u.Id != usuarioId);
 
             if (outrosAdmins == 0)
-                throw new Exception("A família precisa ter pelo menos um administrador.");
+                throw new BusinessRuleException("A família precisa ter pelo menos um administrador.");
         }
 
         private async Task<string> GerarCodigoConviteUnico()

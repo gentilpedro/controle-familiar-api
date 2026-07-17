@@ -1,4 +1,5 @@
 ﻿using ControleFamiliarAPI.DTOs.Transacao;
+using ControleFamiliarAPI.Exceptions;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleGastos.Api.Data;
 using ControleGastos.Api.Models;
@@ -42,32 +43,32 @@ namespace ControleFamiliarAPI.Services.Implementations
         public async Task Criar(TransacaoCreateDto dto)
         {
             if (dto.Valor <= 0)
-                throw new Exception("O valor deve ser positivo.");
+                throw new BusinessRuleException("O valor deve ser positivo.");
 
             var pessoa = await _context.Pessoas
                 .FirstOrDefaultAsync(p => p.Id == dto.PessoaId && p.FamiliaId == _currentUser.FamiliaId);
 
             if (pessoa == null)
-                throw new Exception("Pessoa não encontrada.");
+                throw new NotFoundException("Pessoa não encontrada.");
 
             var categoria = await _context.Categorias
                 .FirstOrDefaultAsync(c => c.Id == dto.CategoriaId && c.FamiliaId == _currentUser.FamiliaId);
 
             if (categoria == null)
-                throw new Exception("Categoria não encontrada.");
+                throw new NotFoundException("Categoria não encontrada.");
 
             // REGRA 1
             if (pessoa.Idade < 18 && dto.Tipo == TipoTransacao.Receita)
-                throw new Exception("Menores de idade só podem registrar despesas.");
+                throw new BusinessRuleException("Menores de idade só podem registrar despesas.");
 
             // REGRA 2
             if (dto.Tipo == TipoTransacao.Receita &&
                 categoria.Finalidade == FinalidadeCategoria.Despesa)
-                throw new Exception("Categoria incompatível.");
+                throw new BusinessRuleException("Categoria incompatível.");
 
             if (dto.Tipo == TipoTransacao.Despesa &&
                 categoria.Finalidade == FinalidadeCategoria.Receita)
-                throw new Exception("Categoria incompatível.");
+                throw new BusinessRuleException("Categoria incompatível.");
 
             var transacao = new Transacao
             {
