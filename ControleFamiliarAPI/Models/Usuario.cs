@@ -21,5 +21,13 @@ namespace ControleGastos.Api.Models
         public int FamiliaId { get; set; }
 
         public Familia? Familia { get; set; }
+
+        /// <summary>
+        /// Administrador pode gerenciar os membros da família: remover,
+        /// promover/rebaixar outros admins e regenerar o código de convite.
+        /// Quem cria a família (modo "Nova" no cadastro) já nasce admin;
+        /// quem entra por código de convite entra como membro comum.
+        /// </summary>
+        public bool EhAdministrador { get; set; }
     }
 }

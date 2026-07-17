@@ -56,11 +56,22 @@ jobs:
              --arg origin "${{ secrets.WEB_ORIGIN }}" \
              --arg scalarUser "${{ secrets.SCALAR_USERNAME }}" \
              --arg scalarPassword "${{ secrets.SCALAR_PASSWORD }}" \
+             --arg smtpHost "${{ secrets.SMTP_HOST }}" \
+             --arg smtpPort "${{ secrets.SMTP_PORT }}" \
+             --arg smtpUsername "${{ secrets.SMTP_USERNAME }}" \
+             --arg smtpPassword "${{ secrets.SMTP_PASSWORD }}" \
+             --arg smtpFrom "${{ secrets.SMTP_FROM }}" \
              '.ConnectionStrings.DefaultConnection = $cs
               | .Jwt.Key = $jwt
               | .Cors.AllowedOrigins = [$origin]
               | .Scalar.Username = $scalarUser
-              | .Scalar.Password = $scalarPassword' \
+              | .Scalar.Password = $scalarPassword
+              | .Frontend.BaseUrl = $origin
+              | .Smtp.Host = $smtpHost
+              | .Smtp.Port = (if $smtpPort == "" then 587 else ($smtpPort | tonumber) end)
+              | .Smtp.Username = $smtpUsername
+              | .Smtp.Password = $smtpPassword
+              | .Smtp.From = $smtpFrom' \
              ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json > ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json.tmp
           mv ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json.tmp ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json
 

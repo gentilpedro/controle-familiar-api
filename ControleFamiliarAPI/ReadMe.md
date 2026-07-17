@@ -95,6 +95,27 @@ GET  /api/auth/me          → dados do usuário logado e da sua família (inclu
 
 ---
 
+# 👨‍👩‍👧 Gestão da família
+
+Quem cria a família (`modoFamilia: "Nova"` no cadastro) já nasce **administrador**; quem entra por código de convite entra como membro comum. Só administradores podem gerenciar a família.
+
+```
+GET  /api/familia                              → dados da família (nome, código, membros)
+DELETE /api/familia/membros/{usuarioId}         → remove um membro (admin)
+POST /api/familia/membros/{usuarioId}/promover  → torna o membro administrador (admin)
+POST /api/familia/membros/{usuarioId}/rebaixar  → tira o status de admin do membro (admin)
+POST /api/familia/regenerar-codigo              → invalida o código atual e gera outro (admin)
+POST /api/familia/convidar                      → envia um e-mail de convite com o código (admin)
+```
+
+Regras:
+
+* Não é possível remover a si mesmo, nem rebaixar/remover o último administrador da família — a família sempre precisa ter pelo menos um admin.
+* Ao remover um membro, ele não fica sem conta: ganha automaticamente uma família nova e individual, da qual passa a ser o único membro e administrador.
+* `POST /api/familia/convidar` exige SMTP configurado (veja a seção de deploy); sem isso, retorna erro explicando para compartilhar o código manualmente.
+
+---
+
 # 📚 Funcionalidades
 
 ## 👤 Pessoas
@@ -276,6 +297,11 @@ Diferente de projetos com banco externo (ex.: Postgres em outro provedor), o MSS
 | `WEB_ORIGIN` | URL de produção do frontend no Vercel (ex.: `https://usefiscalhub.vercel.app`), usada para liberar o CORS |
 | `SCALAR_USERNAME` | Usuário para acessar a documentação (`/scalar`) em produção |
 | `SCALAR_PASSWORD` | Senha para acessar a documentação (`/scalar`) em produção |
+| `SMTP_HOST` | *(opcional)* Host do servidor SMTP — sem isso, convite por e-mail fica desativado (o código de convite continua funcionando normalmente) |
+| `SMTP_PORT` | *(opcional)* Porta do SMTP (padrão 587 se vazio) |
+| `SMTP_USERNAME` | *(opcional)* Usuário/login do SMTP |
+| `SMTP_PASSWORD` | *(opcional)* Senha do SMTP |
+| `SMTP_FROM` | *(opcional)* E-mail remetente dos convites |
 
 ### Como a configuração chega no servidor
 

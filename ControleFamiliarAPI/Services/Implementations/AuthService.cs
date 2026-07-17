@@ -33,16 +33,21 @@ namespace ControleFamiliarAPI.Services.Implementations
 
         public async Task<AuthResponseDto> Registrar(RegistrarDto dto)
         {
-            var familia = dto.ModoFamilia.Equals("Entrar", StringComparison.OrdinalIgnoreCase)
-                ? await EntrarEmFamilia(dto.CodigoConvite)
-                : await CriarFamilia(dto.NomeFamilia, dto.Nome);
+            var criandoFamiliaNova = !dto.ModoFamilia.Equals("Entrar", StringComparison.OrdinalIgnoreCase);
+
+            var familia = criandoFamiliaNova
+                ? await CriarFamilia(dto.NomeFamilia, dto.Nome)
+                : await EntrarEmFamilia(dto.CodigoConvite);
 
             var usuario = new Usuario
             {
                 UserName = dto.Email,
                 Email = dto.Email,
                 Nome = dto.Nome,
-                FamiliaId = familia.Id
+                FamiliaId = familia.Id,
+                // Quem cria a família nasce admin; quem entra por código de
+                // convite entra como membro comum.
+                EhAdministrador = criandoFamiliaNova
             };
 
             var resultado = await _userManager.CreateAsync(usuario, dto.Senha);
@@ -81,7 +86,13 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             return new MeDto
             {
-                Usuario = new UsuarioDto { Id = usuario.Id, Nome = usuario.Nome, Email = usuario.Email! },
+                Usuario = new UsuarioDto
+                {
+                    Id = usuario.Id,
+                    Nome = usuario.Nome,
+                    Email = usuario.Email!,
+                    EhAdministrador = usuario.EhAdministrador
+                },
                 Familia = await MontarFamiliaDto(familia)
             };
         }
@@ -135,7 +146,13 @@ namespace ControleFamiliarAPI.Services.Implementations
             {
                 Token = token,
                 ExpiraEm = expiraEm,
-                Usuario = new UsuarioDto { Id = usuario.Id, Nome = usuario.Nome, Email = usuario.Email! },
+                Usuario = new UsuarioDto
+                {
+                    Id = usuario.Id,
+                    Nome = usuario.Nome,
+                    Email = usuario.Email!,
+                    EhAdministrador = usuario.EhAdministrador
+                },
                 Familia = await MontarFamiliaDto(familia)
             };
         }
@@ -144,7 +161,8 @@ namespace ControleFamiliarAPI.Services.Implementations
         {
             var membros = await _userManager.Users
                 .Where(u => u.FamiliaId == familia.Id)
-                .Select(u => u.Nome)
+                .OrderBy(u => u.Id)
+                .Select(u => new MembroDto { Id = u.Id, Nome = u.Nome, EhAdministrador = u.EhAdministrador })
                 .ToListAsync();
 
             return new FamiliaDto
