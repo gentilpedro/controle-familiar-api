@@ -250,7 +250,7 @@ A documentação inclui:
 
 # 🚀 Deploy (CI/CD) para o MonsterASP.NET
 
-O workflow `.github/workflows/deploy-monsterasp.yml` builda, publica e faz deploy da API para o [MonsterASP.NET](https://monsterasp.net/) via WebDeploy.
+O workflow `.github/workflows/deploy-monsterasp.yml` builda, aplica as migrations pendentes no banco de produção, publica e faz deploy da API para o [MonsterASP.NET](https://monsterasp.net/) via FTP.
 
 ### Quando roda
 
@@ -261,23 +261,25 @@ Branches de feature e Pull Requests **não** disparam deploy.
 
 ### Pré-requisitos no painel do MonsterASP.NET
 
-1. Ativar a conta **WebDeploy** no painel de hospedagem.
+1. Ativar o acesso **FTP** no painel de hospedagem.
 2. Ter um banco SQL Server de produção provisionado (no próprio MonsterASP.NET ou outro provedor) e a connection string em mãos.
 
 ### Secrets necessários no repositório (Settings → Secrets and variables → Actions)
 
 | Secret | De onde vem |
 |---|---|
-| `WEBSITE_NAME` | Painel MonsterASP.NET (algo como `siteXXXX`) |
-| `SERVER_COMPUTER_NAME` | Painel MonsterASP.NET (`https://siteXXXX.siteasp.net:8172`) |
-| `SERVER_USERNAME` | Painel MonsterASP.NET (usuário do WebDeploy) |
-| `SERVER_PASSWORD` | Painel MonsterASP.NET (senha do WebDeploy) |
+| `FTP_SERVER` | Painel MonsterASP.NET (host do FTP) |
+| `FTP_USERNAME` | Painel MonsterASP.NET (usuário do FTP) |
+| `FTP_PASSWORD` | Painel MonsterASP.NET (senha do FTP) |
 | `DB_CONNECTION_STRING` | Connection string do SQL Server de produção |
 | `JWT_KEY` | Uma chave longa e aleatória, só para produção (diferente da usada em dev) |
+| `WEB_ORIGIN` | URL de produção do frontend no Vercel (ex.: `https://controle-familiar-web.vercel.app`), usada para liberar o CORS |
 
 ### Como a configuração chega no servidor
 
-O MonsterASP.NET é hospedagem compartilhada: o painel não dá acesso a variáveis de ambiente do servidor/IIS diretamente. Por isso o workflow injeta `ConnectionStrings__DefaultConnection` e `Jwt__Key` dentro da tag `<environmentVariables>` do `web.config` gerado pelo `dotnet publish` — é assim que o Módulo do ASP.NET Core (ANCM) do IIS repassa configuração para o processo da aplicação. Esse `web.config` com os segredos só existe no ambiente de deploy (gerado a cada execução do workflow); os valores nunca ficam no repositório.
+O MonsterASP.NET é hospedagem compartilhada: o painel não dá acesso a variáveis de ambiente do servidor/IIS diretamente. Sem `ASPNETCORE_ENVIRONMENT` definido, o ASP.NET Core assume `Production` por padrão e carrega `appsettings.Production.json` por cima do `appsettings.json`. O `appsettings.Production.json` versionado no repositório só tem placeholders vazios; a cada deploy o workflow reescreve esse arquivo já publicado com os valores reais (`ConnectionStrings:DefaultConnection`, `Jwt:Key`, `Cors:AllowedOrigins`) vindos dos GitHub Secrets — os valores nunca ficam no código-fonte.
+
+Antes de subir os arquivos por FTP, o workflow publica um `app_offline.htm` (libera os locks de arquivo do IIS) e o remove no final, colocando a aplicação de volta no ar.
 
 ### Runtime
 
@@ -290,7 +292,7 @@ O publish usa `--runtime win-x86` (padrão recomendado pelo MonsterASP.NET, a ma
 * Estrutura em camadas (Controller + Service)
 * Regras de negócio bem definidas
 * Autenticação multiusuário com isolamento por família
-* Segredos fora do código-fonte (User Secrets em dev, GitHub Secrets + web.config em produção)
+* Segredos fora do código-fonte (User Secrets em dev, GitHub Secrets + appsettings.Production.json em produção)
 * Uso de DTOs
 * Documentação OpenAPI completa
 * CI/CD pronto para deploy no MonsterASP.NET

@@ -11,6 +11,7 @@ env:
   DOTNET_VERSION: "9.0.x"
   SOLUTION_PATH: ControleFamiliarAPI/ControleFamiliarAPI.sln
   PROJECT_PATH: ControleFamiliarAPI/ControleFamiliarAPI/ControleFamiliarAPI.csproj
+  PROJECT_DIR: ControleFamiliarAPI/ControleFamiliarAPI
   PUBLISH_OUTPUT: ./publish
 
 jobs:
@@ -30,6 +31,21 @@ jobs:
       - name: Build
         run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
 
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef
+
+      # Aplica as migrations pendentes direto no banco de producao antes do
+      # deploy. Program.cs valida ConnectionStrings:DefaultConnection e
+      # Jwt:Key na inicializacao (mesmo o design-time host do dotnet-ef
+      # passa por esse trecho), por isso as duas env vars sao necessarias
+      # aqui, nao so no passo de publish.
+      - name: Apply database migrations
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.DB_CONNECTION_STRING }}
+          Jwt__Key: ${{ secrets.JWT_KEY }}
+        run: dotnet ef database update --configuration Release
+
       # win-x86 e o padrao recomendado pelo MonsterASP.NET (app pool 32-bit
       # na maioria dos planos). Se o painel indicar app pool 64-bit, troque
       # para win-x64 aqui.
@@ -41,49 +57,45 @@ jobs:
           --runtime win-x86
           --self-contained false
 
-      # MonsterASP.NET e hospedagem compartilhada: nao ha acesso a variaveis
-      # de ambiente do servidor/IIS pelo painel. A forma padrao de injetar
-      # configuracao sensivel em apps ASP.NET Core hospedados assim e via
-      # <environmentVariables> dentro do <aspNetCore> do web.config gerado
-      # pelo `dotnet publish` — e o que o Modulo do ASP.NET Core (ANCM) le
-      # ao iniciar o processo.
-      - name: Injetar segredos de produção no web.config
+      # MonsterASP.NET e hospedagem compartilhada: o painel nao da acesso a
+      # variaveis de ambiente do servidor. Sem ASPNETCORE_ENVIRONMENT
+      # definido, o ASP.NET Core assume "Production" por padrao e carrega
+      # appsettings.Production.json automaticamente por cima do
+      # appsettings.json — e nesse arquivo publicado que os segredos sao
+      # gravados a cada deploy. O appsettings.Production.json versionado no
+      # repo so tem placeholders vazios; os valores reais nunca ficam no
+      # codigo-fonte.
+      - name: Injetar segredos de produção no appsettings.Production.json
         shell: pwsh
         env:
           DB_CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
           JWT_KEY: ${{ secrets.JWT_KEY }}
           WEB_ORIGIN: ${{ secrets.WEB_ORIGIN }}
         run: |
-          $path = Join-Path $env:PUBLISH_OUTPUT "web.config"
-          [xml]$xml = Get-Content $path
+          $path = Join-Path $env:PUBLISH_OUTPUT "appsettings.Production.json"
+          $json = Get-Content $path -Raw | ConvertFrom-Json
 
-          $aspNetCore = $xml.SelectSingleNode("//aspNetCore")
-          if (-not $aspNetCore) {
-            throw "Nao encontrei o no <aspNetCore> em $path — verifique se o publish gerou o web.config esperado."
-          }
+          $json.ConnectionStrings.DefaultConnection = $env:DB_CONNECTION_STRING
+          $json.Jwt.Key = $env:JWT_KEY
+          $json.Cors.AllowedOrigins = @($env:WEB_ORIGIN)
 
-          $envVars = $xml.CreateElement("environmentVariables")
+          $json | ConvertTo-Json -Depth 10 | Set-Content $path
 
-          function Add-EnvVar([string]$name, [string]$value) {
-            $node = $xml.CreateElement("environmentVariable")
-            $node.SetAttribute("name", $name)
-            $node.SetAttribute("value", $value)
-            $envVars.AppendChild($node) | Out-Null
-          }
+      # Libera os locks de arquivo do IIS antes de sobrescrever o app.
+      - name: Take app offline (release IIS file locks)
+        run: |
+          echo "App temporarily offline for deployment." > app_offline.htm
+          curl --ftp-pasv -T app_offline.htm --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" "ftp://${{ secrets.FTP_SERVER }}/wwwroot/app_offline.htm"
 
-          Add-EnvVar "ASPNETCORE_ENVIRONMENT" "Production"
-          Add-EnvVar "ConnectionStrings__DefaultConnection" $env:DB_CONNECTION_STRING
-          Add-EnvVar "Jwt__Key" $env:JWT_KEY
-          Add-EnvVar "Cors__AllowedOrigins__0" $env:WEB_ORIGIN
-
-          $aspNetCore.AppendChild($envVars) | Out-Null
-          $xml.Save($path)
-
-      - name: Deploy para MonsterASP.NET via WebDeploy
-        uses: rasmusbuchholdt/simply-web-deploy@2.2.0
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          website-name: ${{ secrets.WEBSITE_NAME }}
-          server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME }}
-          server-username: ${{ secrets.SERVER_USERNAME }}
-          server-password: ${{ secrets.SERVER_PASSWORD }}
-          source-path: "\\publish\\"
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./publish/
+          server-dir: /wwwroot/
+
+      - name: Bring app back online
+        run: |
+          curl --ftp-pasv --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" -Q "DELE /wwwroot/app_offline.htm" "ftp://${{ secrets.FTP_SERVER }}/"
