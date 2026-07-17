@@ -1,4 +1,4 @@
-﻿using ControleFamiliarAPI.DTO.Pessoa;
+using ControleFamiliarAPI.DTO.Pessoa;
 using ControleFamiliarAPI.DTOs;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleGastos.Api.Data;
@@ -10,15 +10,18 @@ namespace ControleFamiliarAPI.Services.Implementations
     public class PessoaService : IPessoaService
     {
         private readonly AppDbContext _context;
+        private readonly ICurrentUserService _currentUser;
 
-        public PessoaService(AppDbContext context)
+        public PessoaService(AppDbContext context, ICurrentUserService currentUser)
         {
             _context = context;
+            _currentUser = currentUser;
         }
 
         public async Task<List<PessoaResponseDto>> Listar()
         {
             return await _context.Pessoas
+                .Where(p => p.FamiliaId == _currentUser.FamiliaId)
                 .Select(p => new PessoaResponseDto
                 {
                     Id = p.Id,
@@ -33,7 +36,8 @@ namespace ControleFamiliarAPI.Services.Implementations
             var pessoa = new Pessoa
             {
                 Nome = dto.Nome,
-                Idade = dto.Idade
+                Idade = dto.Idade,
+                FamiliaId = _currentUser.FamiliaId
             };
 
             _context.Pessoas.Add(pessoa);
@@ -50,23 +54,28 @@ namespace ControleFamiliarAPI.Services.Implementations
 
         public async Task Atualizar(int id, PessoaUpdateDto dto)
         {
-            var pessoa = await _context.Pessoas.FindAsync(id);
+            var pessoa = await _context.Pessoas
+                .FirstOrDefaultAsync(p => p.Id == id && p.FamiliaId == _currentUser.FamiliaId);
 
             if (pessoa == null)
-                throw new Exception("Pessoa não encontrada");
+                throw new Exception("Pessoa n�o encontrada");
 
-            pessoa.Nome = dto.Nome;
-            pessoa.Idade = dto.Idade;
+            if (!string.IsNullOrEmpty(dto.Nome))
+                pessoa.Nome = dto.Nome;
+
+            if (dto.Idade.HasValue)
+                pessoa.Idade = dto.Idade.Value;
 
             await _context.SaveChangesAsync();
         }
 
         public async Task Deletar(int id)
         {
-            var pessoa = await _context.Pessoas.FindAsync(id);
+            var pessoa = await _context.Pessoas
+                .FirstOrDefaultAsync(p => p.Id == id && p.FamiliaId == _currentUser.FamiliaId);
 
             if (pessoa == null)
-                throw new Exception("Pessoa não encontrada");
+                throw new Exception("Pessoa n�o encontrada");
 
             _context.Pessoas.Remove(pessoa);
 

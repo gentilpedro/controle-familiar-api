@@ -1,7 +1,13 @@
-﻿using ControleFamiliarAPI.DTO.Auth;
+using ControleFamiliarAPI.DTO.Auth;
 
-public interface IAuthService
+namespace ControleFamiliarAPI.Services.Interfaces
 {
-    Task<AuthResponseDto> Register(RegisterDto dto);    
-    Task<AuthResponseDto> Login(LoginDto dto);
+    public interface IAuthService
+    {
+        Task<AuthResponseDto> Registrar(RegistrarDto dto);
+
+        Task<AuthResponseDto> Login(LoginDto dto);
+
+        Task<MeDto> Me();
+    }
 }

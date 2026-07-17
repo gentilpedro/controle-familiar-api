@@ -1,8 +1,14 @@
-﻿namespace ControleFamiliarAPI.DTO.Auth
+using System.ComponentModel.DataAnnotations;
+
+namespace ControleFamiliarAPI.DTO.Auth
 {
     public class LoginDto
     {
-        public string Email { get; set; }
-        public string Senha { get; set; }
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [Required]
+        public string Senha { get; set; } = string.Empty;
     }
 }

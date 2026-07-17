@@ -1,83 +1,138 @@
-﻿using ControleFamiliarAPI.DTOs.Relatorios;
-using ControleFamiliarAPI.Responses;
-using ControleGastos.Api.Data;
-using ControleGastos.Api.Models.Enums;
+using ControleFamiliarAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.OpenApi;
 
 namespace ControleFamiliarAPI.Controllers
 {
     [ApiController]
     [Route("api/relatorios")]
+    [Authorize]
     public class RelatoriosController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IRelatorioService _relatorioService;
 
-        public RelatoriosController(AppDbContext context)
+        public RelatoriosController(IRelatorioService relatorioService)
         {
-            _context = context;
+            _relatorioService = relatorioService;
         }
 
-        /// <summary>
-        /// Retorna o total de receitas, despesas e saldo por pessoa.
-        /// </summary>
-        /// <remarks>
-        /// Este endpoint calcula os totais financeiros agrupados por pessoa.
-        /// Também retorna os totais gerais do sistema.
-        /// </remarks>
-        /// <returns>Resumo financeiro por pessoa</returns>
+        // GET api/relatorios/totais-por-pessoa
         [HttpGet("totais-por-pessoa")]
-        public async Task<ActionResult<ResumoPessoasDto>> TotaisPorPessoa()
-        {
-            var pessoas = await _context.Pessoas
-                .Select(p => new TotaisPessoaDto
-                {
-                    Pessoa = p.Nome,
-
-                    TotalReceitas = p.Transacoes
-                        .Where(t => t.Tipo == TipoTransacao.Receita)
-                        .Sum(t => (decimal?)t.Valor) ?? 0,
-
-                    TotalDespesas = p.Transacoes
-                        .Where(t => t.Tipo == TipoTransacao.Despesa)
-                        .Sum(t => (decimal?)t.Valor) ?? 0
-                })
-                .ToListAsync();
-
-            var resumo = new ResumoPessoasDto
+        [Tags("Relat�rios")]
+        [EndpointSummary("Resumo financeiro por pessoa")]
+        [EndpointDescription("""
+            Retorna o total de receitas, despesas e saldo agrupado por pessoa.
+            
+            Este endpoint � utilizado para gera��o de gr�ficos e dashboards.
+            
+            Exemplo de resposta:
+            
             {
-                Pessoas = pessoas,
-                TotalReceitas = pessoas.Sum(p => p.TotalReceitas),
-                TotalDespesas = pessoas.Sum(p => p.TotalDespesas)
-            };
-
-            return Ok(resumo);
+              "pessoas": [
+                {
+                  "pessoa": "Pedro",
+                  "totalReceitas": 5000,
+                  "totalDespesas": 300
+                },
+                {
+                  "pessoa": "Ana",
+                  "totalReceitas": 1500,
+                  "totalDespesas": 80
+                }
+              ],
+              "totalReceitas": 6500,
+              "totalDespesas": 380
+            }
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<ActionResult> TotaisPorPessoa()
+        {
+            var result = await _relatorioService.TotaisPorPessoa();
+            return Ok(result);
         }
 
-        /// <summary>
-        /// Retorna o total de despesas agrupadas por categoria.
-        /// </summary>
-        /// <remarks>
-        /// Este endpoint é utilizado para geração de relatórios e gráficos,
-        /// permitindo visualizar quanto foi gasto em cada categoria.
-        /// </remarks>
-        /// <returns>Lista contendo categoria e total de despesas</returns>
-
+        // GET api/relatorios/totais-por-categoria
         [HttpGet("totais-por-categoria")]
+        [Tags("Relat�rios")]
+        [EndpointSummary("Resumo de despesas por categoria")]
+        [EndpointDescription("""
+            Retorna o total de despesas agrupadas por categoria.
+            
+            Utilizado para gr�ficos de distribui��o de gastos.
+            
+            Exemplo de resposta:
+            
+            [
+              {
+                "categoria": "Alimenta��o",
+                "total": 300
+              },
+              {
+                "categoria": "Lazer",
+                "total": 60
+              },
+              {
+                "categoria": "Transporte",
+                "total": 80
+              }
+            ]
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult> TotaisPorCategoria()
         {
-            var resultado = await _context.Transacoes
-                .Include(t => t.Categoria)
-                .Where(t => t.Tipo == TipoTransacao.Despesa)
-                .GroupBy(t => t.Categoria!.Descricao)
-                .Select(g => new
-                {
-                    Categoria = g.Key,
-                    Total = g.Sum(t => t.Valor)
-                })
-                .ToListAsync();
+            var result = await _relatorioService.TotaisPorCategoria();
+            return Ok(result);
+        }
 
-            return Ok(resultado);
+        // GET api/relatorios/excel-pessoa
+        [HttpGet("excel-pessoa")]
+        [Tags("Relat�rios")]
+        [EndpointSummary("Exporta relat�rio financeiro por pessoa (Excel)")]
+        [EndpointDescription("""
+            Gera um arquivo Excel contendo:
+            
+            - Pessoa
+            - Total de Receitas
+            - Total de Despesas
+            - Saldo
+            
+            O arquivo � retornado como download no formato .xlsx.
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> ExcelPessoa()
+        {
+            var file = await _relatorioService.GerarExcelTotaisPessoa();
+
+            return File(
+                file,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "relatorio-financeiro-pessoas.xlsx"
+            );
+        }
+
+        // GET api/relatorios/excel-categoria
+        [HttpGet("excel-categoria")]
+        [Tags("Relat�rios")]
+        [EndpointSummary("Exporta relat�rio de despesas por categoria (Excel)")]
+        [EndpointDescription("""
+            Gera um arquivo Excel contendo:
+            
+            - Categoria
+            - Total gasto
+            
+            O arquivo � retornado como download no formato .xlsx.
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> ExcelCategoria()
+        {
+            var file = await _relatorioService.GerarExcelTotaisCategoria();
+
+            return File(
+                file,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "relatorio-financeiro-categorias.xlsx"
+            );
         }
     }
 }

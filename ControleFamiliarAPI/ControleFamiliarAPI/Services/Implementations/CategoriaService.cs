@@ -9,15 +9,18 @@ namespace ControleFamiliarAPI.Services.Implementations
     public class CategoriaService : ICategoriaService
     {
         private readonly AppDbContext _context;
+        private readonly ICurrentUserService _currentUser;
 
-        public CategoriaService(AppDbContext context)
+        public CategoriaService(AppDbContext context, ICurrentUserService currentUser)
         {
             _context = context;
+            _currentUser = currentUser;
         }
 
         public async Task<List<CategoriaResponseDto>> Listar()
         {
             return await _context.Categorias
+                .Where(c => c.FamiliaId == _currentUser.FamiliaId)
                 .Select(c => new CategoriaResponseDto
                 {
                     Id = c.Id,
@@ -32,7 +35,8 @@ namespace ControleFamiliarAPI.Services.Implementations
             var categoria = new Categoria
             {
                 Descricao = dto.Descricao,
-                Finalidade = dto.Finalidade
+                Finalidade = dto.Finalidade,
+                FamiliaId = _currentUser.FamiliaId
             };
 
             _context.Categorias.Add(categoria);
@@ -48,7 +52,8 @@ namespace ControleFamiliarAPI.Services.Implementations
 
         public async Task Deletar(int id)
         {
-            var categoria = await _context.Categorias.FindAsync(id);
+            var categoria = await _context.Categorias
+                .FirstOrDefaultAsync(c => c.Id == id && c.FamiliaId == _currentUser.FamiliaId);
 
             if (categoria == null)
                 throw new Exception("Categoria não encontrada.");

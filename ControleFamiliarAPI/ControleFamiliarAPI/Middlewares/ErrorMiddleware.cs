@@ -1,4 +1,5 @@
-﻿using ControleFamiliarAPI.Responses;
+﻿using ControleFamiliarAPI.Exceptions;
+using ControleFamiliarAPI.Responses;
 using System.Text.Json;
 
 namespace ControleFamiliarAPI.Middlewares
@@ -21,7 +22,9 @@ namespace ControleFamiliarAPI.Middlewares
             catch (Exception ex)
             {
                 context.Response.ContentType = "application/json";
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                context.Response.StatusCode = ex is UnauthorizedException
+                    ? StatusCodes.Status401Unauthorized
+                    : StatusCodes.Status400BadRequest;
 
                 var response = new ApiResponse<string>(ex.Message);
 

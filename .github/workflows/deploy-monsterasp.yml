@@ -1,0 +1,87 @@
+name: Build, publish e deploy para MonsterASP.NET
+
+# Só roda em push na main (deploy de producao) ou manualmente pelo Actions.
+# Branches de feature/PR nao disparam deploy.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: "9.0.x"
+  SOLUTION_PATH: ControleFamiliarAPI/ControleFamiliarAPI.sln
+  PROJECT_PATH: ControleFamiliarAPI/ControleFamiliarAPI/ControleFamiliarAPI.csproj
+  PUBLISH_OUTPUT: ./publish
+
+jobs:
+  build_and_deploy:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+
+      # win-x86 e o padrao recomendado pelo MonsterASP.NET (app pool 32-bit
+      # na maioria dos planos). Se o painel indicar app pool 64-bit, troque
+      # para win-x64 aqui.
+      - name: Publish
+        run: >
+          dotnet publish ${{ env.PROJECT_PATH }}
+          --configuration Release
+          --output ${{ env.PUBLISH_OUTPUT }}
+          --runtime win-x86
+          --self-contained false
+
+      # MonsterASP.NET e hospedagem compartilhada: nao ha acesso a variaveis
+      # de ambiente do servidor/IIS pelo painel. A forma padrao de injetar
+      # configuracao sensivel em apps ASP.NET Core hospedados assim e via
+      # <environmentVariables> dentro do <aspNetCore> do web.config gerado
+      # pelo `dotnet publish` — e o que o Modulo do ASP.NET Core (ANCM) le
+      # ao iniciar o processo.
+      - name: Injetar segredos de produção no web.config
+        shell: pwsh
+        env:
+          DB_CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
+          JWT_KEY: ${{ secrets.JWT_KEY }}
+        run: |
+          $path = Join-Path $env:PUBLISH_OUTPUT "web.config"
+          [xml]$xml = Get-Content $path
+
+          $aspNetCore = $xml.SelectSingleNode("//aspNetCore")
+          if (-not $aspNetCore) {
+            throw "Nao encontrei o no <aspNetCore> em $path — verifique se o publish gerou o web.config esperado."
+          }
+
+          $envVars = $xml.CreateElement("environmentVariables")
+
+          function Add-EnvVar([string]$name, [string]$value) {
+            $node = $xml.CreateElement("environmentVariable")
+            $node.SetAttribute("name", $name)
+            $node.SetAttribute("value", $value)
+            $envVars.AppendChild($node) | Out-Null
+          }
+
+          Add-EnvVar "ASPNETCORE_ENVIRONMENT" "Production"
+          Add-EnvVar "ConnectionStrings__DefaultConnection" $env:DB_CONNECTION_STRING
+          Add-EnvVar "Jwt__Key" $env:JWT_KEY
+
+          $aspNetCore.AppendChild($envVars) | Out-Null
+          $xml.Save($path)
+
+      - name: Deploy para MonsterASP.NET via WebDeploy
+        uses: rasmusbuchholdt/simply-web-deploy@2.2.0
+        with:
+          website-name: ${{ secrets.WEBSITE_NAME }}
+          server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME }}
+          server-username: ${{ secrets.SERVER_USERNAME }}
+          server-password: ${{ secrets.SERVER_PASSWORD }}
+          source-path: "\\publish\\"

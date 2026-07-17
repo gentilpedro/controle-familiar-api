@@ -1,20 +1,25 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Identity;
 
-namespace ControleFamiliarAPI.Models
+namespace ControleGastos.Api.Models
 {
-    public class Usuario
+    public class Usuario : IdentityUser<int>
     {
-        public int Id { get; set; }
-
+        /// <summary>
+        /// Nome de exibição do usuário.
+        /// </summary>
         [Required]
         [MaxLength(200)]
-        public string Nome { get; set; }
+        public string Nome { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Família à qual este usuário pertence. Toda conta pertence a
+        /// exatamente uma família — o uso "individual" é simplesmente
+        /// uma família com um único membro.
+        /// </summary>
         [Required]
-        [MaxLength(200)]
-        public string Email { get; set; }
+        public int FamiliaId { get; set; }
 
-        [Required]
-        public string SenhaHash { get; set; }
+        public Familia? Familia { get; set; }
     }
 }
