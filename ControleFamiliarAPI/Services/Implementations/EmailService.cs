@@ -30,6 +30,14 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             var linkConvite = $"{frontendUrl}/registrar?codigo={codigoConvite}";
 
+            // convidadoPor/nomeFamilia vêm de texto livre digitado pelo usuário
+            // no cadastro (RegistrarDto.Nome/NomeFamilia). Como o corpo é HTML
+            // (IsBodyHtml = true), precisam ser encodados antes de entrar no
+            // template — senão viram um vetor de HTML injection no e-mail do
+            // convidado.
+            var convidadoPorSeguro = WebUtility.HtmlEncode(convidadoPor);
+            var nomeFamiliaSeguro = WebUtility.HtmlEncode(nomeFamilia);
+
             var mensagem = new MailMessage
             {
                 From = new MailAddress(remetente ?? smtp["Username"] ?? string.Empty, nomeRemetente),
@@ -37,7 +45,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 IsBodyHtml = true,
                 Body = $"""
                     <p>Olá!</p>
-                    <p><strong>{convidadoPor}</strong> te convidou para entrar na família <strong>{nomeFamilia}</strong> no Controle Financeiro, e passar a compartilhar os mesmos dados de pessoas, categorias e transações.</p>
+                    <p><strong>{convidadoPorSeguro}</strong> te convidou para entrar na família <strong>{nomeFamiliaSeguro}</strong> no Controle Financeiro, e passar a compartilhar os mesmos dados de pessoas, categorias e transações.</p>
                     <p>Para entrar, cadastre-se usando o código de convite abaixo:</p>
                     <p style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">{codigoConvite}</p>
                     <p>Ou clique direto no link: <a href="{linkConvite}">{linkConvite}</a></p>

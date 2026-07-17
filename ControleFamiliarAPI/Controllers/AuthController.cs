@@ -4,6 +4,7 @@ using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ControleFamiliarAPI.Controllers
 {
@@ -21,6 +22,7 @@ namespace ControleFamiliarAPI.Controllers
         // POST api/auth/registrar
         [HttpPost("registrar")]
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         [Tags("Autenticação")]
         [EndpointSummary("Cria uma nova conta de usuário")]
         [EndpointDescription("""
@@ -45,6 +47,7 @@ namespace ControleFamiliarAPI.Controllers
         // POST api/auth/login
         [HttpPost("login")]
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         [Tags("Autenticação")]
         [EndpointSummary("Autentica um usuário existente")]
         [ProducesResponseType(StatusCodes.Status200OK)]
