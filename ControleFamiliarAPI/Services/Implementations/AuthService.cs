@@ -38,6 +38,12 @@ namespace ControleFamiliarAPI.Services.Implementations
         {
             var criandoFamiliaNova = !dto.ModoFamilia.Equals("Entrar", StringComparison.OrdinalIgnoreCase);
 
+            // Criar a Familia (via _context) e criar o Usuario (via UserManager,
+            // que usa o mesmo AppDbContext) são duas SaveChanges separadas. Sem
+            // uma transação cobrindo as duas, uma falha no CreateAsync (ex.:
+            // e-mail duplicado) deixaria a Familia já persistida órfã no banco.
+            await using var transacao = await _context.Database.BeginTransactionAsync();
+
             var familia = criandoFamiliaNova
                 ? await CriarFamilia(dto.NomeFamilia, dto.Nome)
                 : await EntrarEmFamilia(dto.CodigoConvite);
@@ -57,6 +63,8 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             if (!resultado.Succeeded)
                 throw new BusinessRuleException(string.Join(" ", resultado.Errors.Select(e => e.Description)));
+
+            await transacao.CommitAsync();
 
             return await MontarResposta(usuario, familia);
         }

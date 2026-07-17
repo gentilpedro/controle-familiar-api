@@ -1,3 +1,4 @@
+using System.Data;
 using ControleFamiliarAPI.DTO.Auth;
 using ControleFamiliarAPI.Exceptions;
 using ControleFamiliarAPI.Services.Interfaces;
@@ -39,6 +40,16 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (usuarioId == _currentUser.UsuarioId)
                 throw new BusinessRuleException("Você não pode remover a si mesmo. Peça a outro administrador.");
 
+            // Isolamento Serializable: o "ainda sobra um admin?"
+            // (GarantirQueSobraAdmin) e as escritas que de fato tiram o membro
+            // da família precisam ser vistas como uma unidade atômica pelo
+            // banco. Sem isso, duas remoções concorrentes de administradores
+            // diferentes poderiam passar as duas pelo check antes de qualquer
+            // uma escrever, deixando a família sem nenhum administrador.
+            // A transação também garante que a criação da nova família
+            // individual e a atualização do membro sejam tudo-ou-nada.
+            await using var transacao = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
             var membro = await BuscarMembro(usuarioId);
 
             await GarantirQueSobraAdmin(usuarioId);
@@ -58,6 +69,8 @@ namespace ControleFamiliarAPI.Services.Implementations
             membro.EhAdministrador = true;
             await _userManager.UpdateAsync(membro);
 
+            await transacao.CommitAsync();
+
             return await MontarFamiliaDto(await BuscarFamiliaAtual());
         }
 
@@ -76,12 +89,28 @@ namespace ControleFamiliarAPI.Services.Implementations
         {
             await GarantirAdmin();
 
-            var membro = await BuscarMembro(usuarioId);
+            var membroExiste = await _userManager.Users
+                .AnyAsync(u => u.Id == usuarioId && u.FamiliaId == _currentUser.FamiliaId);
 
-            await GarantirQueSobraAdmin(usuarioId);
+            if (!membroExiste)
+                throw new NotFoundException("Membro não encontrado nesta família.");
 
-            membro.EhAdministrador = false;
-            await _userManager.UpdateAsync(membro);
+            // Update condicional atômico: a condição "sobra outro admin?" vai
+            // pro WHERE da própria escrita (uma única instrução SQL), então não
+            // existe janela entre checar e escrever para uma segunda requisição
+            // concorrente se intrometer — diferente de checar com
+            // GarantirQueSobraAdmin e só depois chamar UpdateAsync em separado.
+            var linhasAfetadas = await _context.Users
+                .Where(u => u.Id == usuarioId
+                    && u.FamiliaId == _currentUser.FamiliaId
+                    && _context.Users.Count(outro =>
+                        outro.FamiliaId == _currentUser.FamiliaId
+                        && outro.EhAdministrador
+                        && outro.Id != usuarioId) > 0)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.EhAdministrador, false));
+
+            if (linhasAfetadas == 0)
+                throw new BusinessRuleException("A família precisa ter pelo menos um administrador.");
 
             return await MontarFamiliaDto(await BuscarFamiliaAtual());
         }
