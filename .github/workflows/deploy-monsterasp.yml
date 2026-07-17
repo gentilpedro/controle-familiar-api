@@ -52,6 +52,7 @@ jobs:
         env:
           DB_CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
           JWT_KEY: ${{ secrets.JWT_KEY }}
+          WEB_ORIGIN: ${{ secrets.WEB_ORIGIN }}
         run: |
           $path = Join-Path $env:PUBLISH_OUTPUT "web.config"
           [xml]$xml = Get-Content $path
@@ -73,6 +74,7 @@ jobs:
           Add-EnvVar "ASPNETCORE_ENVIRONMENT" "Production"
           Add-EnvVar "ConnectionStrings__DefaultConnection" $env:DB_CONNECTION_STRING
           Add-EnvVar "Jwt__Key" $env:JWT_KEY
+          Add-EnvVar "Cors__AllowedOrigins__0" $env:WEB_ORIGIN
 
           $aspNetCore.AppendChild($envVars) | Out-Null
           $xml.Save($path)
