@@ -118,7 +118,7 @@ builder.Services.AddOpenApi(options =>
 
     options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
-        document.Info.Description = "API Controle Familiar com documenta��o detalhada";
+        document.Info.Description = "API Controle Familiar com documentação detalhada";
         return Task.CompletedTask;
     });
 });

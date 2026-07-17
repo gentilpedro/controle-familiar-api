@@ -44,23 +44,23 @@ namespace ControleFamiliarAPI.Controllers
         }
 
         [HttpPost]
-        [Tags("Transa��es")]
-        [EndpointSummary("Cria uma nova transa��o financeira")]
+        [Tags("Transações")]
+        [EndpointSummary("Cria uma nova transação financeira")]
         [EndpointDescription("""
-            Registra uma nova transa��o de receita ou despesa vinculada
+            Registra uma nova transação de receita ou despesa vinculada
             a uma pessoa e a uma categoria existente.
             
-            Dados necess�rios:
-            - Descri��o da transa��o
+            Dados necessários:
+            - Descrição da transação
             - Valor (deve ser positivo)
-            - Tipo da transa��o (Receita ou Despesa)
+            - Tipo da transação (Receita ou Despesa)
             - Identificador da pessoa
             - Identificador da categoria
             
-            Regras de neg�cio:
+            Regras de negócio:
             - O valor deve ser maior que zero
             - Pessoas menores de 18 anos podem registrar apenas despesas
-            - A categoria deve ser compat�vel com o tipo da transa��o
+            - A categoria deve ser compatível com o tipo da transação
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
