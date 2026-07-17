@@ -30,6 +30,12 @@ jobs:
       - name: Build
         run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
 
+      # Se algum teste falhar, o workflow para aqui — Publish/Deploy não
+      # rodam. ControleFamiliarAPI.Tests cobre autenticação, isolamento por
+      # família e as regras de negócio mais sensíveis.
+      - name: Test
+        run: dotnet test ${{ env.SOLUTION_PATH }} --configuration Release --no-build
+
       # Diferente do padrão usado no Representantes_API: lá as migrations
       # rodam aqui no CI porque o banco (Postgres) aceita conexão externa.
       # O MSSQL free do MonsterASP.NET só aceita "Local access" — conexão

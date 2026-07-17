@@ -76,6 +76,9 @@ builder.Services
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>();
+
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IFamiliaDtoFactory, FamiliaDtoFactory>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -188,6 +191,10 @@ app.Use(async (context, next) =>
 
 app.MapOpenApi();
 app.MapScalarApiReference();
+
+// Sem autenticação de propósito: precisa ser alcançável por monitoramento
+// externo (ou o próprio painel do MonsterASP.NET) sem token nenhum.
+app.MapHealthChecks("/health");
 
 app.UseMiddleware<ErrorMiddleware>();
 app.UseCors("AllowReact");
