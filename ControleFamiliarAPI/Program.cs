@@ -25,8 +25,14 @@ if (string.IsNullOrWhiteSpace(jwtKey))
     throw new InvalidOperationException(
         "Jwt:Key não configurada. Em desenvolvimento, use 'dotnet user-secrets set Jwt:Key \"...\"'; em produção, defina a variável de ambiente Jwt__Key.");
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(connectionString));
+// Em testes de integração (ambiente "Testing"), o AppDbContext real (SQL
+// Server) não é registrado aqui — o CustomWebApplicationFactory dos testes
+// registra o próprio, apontando pra SQLite em memória.
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlServer(connectionString));
+}
 
 builder.Services
     .AddIdentityCore<Usuario>(options =>
@@ -138,8 +144,12 @@ app.UseHttpsRedirection();
 // (não de um runner externo do CI), então rodar "dotnet ef database update"
 // no pipeline não é viável aqui — a própria aplicação, já rodando no
 // datacenter, é quem aplica as migrations no primeiro start.
-using (var scope = app.Services.CreateScope())
+// Pulado no ambiente "Testing": lá o schema é criado direto do modelo
+// (Database.EnsureCreated, ver ControleFamiliarAPI.Tests) contra SQLite, e
+// as migrations aqui foram escritas especificamente para SQL Server.
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
 }
@@ -187,3 +197,10 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Necessário para o WebApplicationFactory<Program> dos testes de integração
+// enxergar essa classe — com top-level statements ela é gerada como
+// "internal" por padrão.
+public partial class Program
+{
+}
