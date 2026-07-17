@@ -1,4 +1,4 @@
-﻿namespace ControleGastos.Api.Models.Enums
+﻿namespace ControleFamiliarAPI.Models.Enums
 {
     public enum TipoTransacao
     {

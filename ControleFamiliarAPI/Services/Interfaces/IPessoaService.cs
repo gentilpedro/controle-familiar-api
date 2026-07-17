@@ -1,5 +1,4 @@
-﻿using ControleFamiliarAPI.DTO.Pessoa;
-using ControleFamiliarAPI.DTOs;
+﻿using ControleFamiliarAPI.DTOs.Pessoa;
 
 namespace ControleFamiliarAPI.Services.Interfaces
 {

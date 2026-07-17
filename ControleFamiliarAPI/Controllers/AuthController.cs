@@ -1,4 +1,4 @@
-using ControleFamiliarAPI.DTO.Auth;
+using ControleFamiliarAPI.DTOs.Auth;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -19,7 +19,6 @@ namespace ControleFamiliarAPI.Controllers
             _service = service;
         }
 
-        // POST api/auth/registrar
         [HttpPost("registrar")]
         [AllowAnonymous]
         [EnableRateLimiting("auth")]
@@ -44,7 +43,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<AuthResponseDto>(resultado));
         }
 
-        // POST api/auth/login
         [HttpPost("login")]
         [AllowAnonymous]
         [EnableRateLimiting("auth")]
@@ -58,7 +56,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<AuthResponseDto>(resultado));
         }
 
-        // GET api/auth/me
         [HttpGet("me")]
         [Authorize]
         [Tags("Autenticação")]

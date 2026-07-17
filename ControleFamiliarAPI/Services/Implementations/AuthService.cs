@@ -1,11 +1,12 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using ControleFamiliarAPI.DTO.Auth;
+using ControleFamiliarAPI.DTOs.Auth;
 using ControleFamiliarAPI.Exceptions;
+using ControleFamiliarAPI.Services;
 using ControleFamiliarAPI.Services.Interfaces;
-using ControleGastos.Api.Data;
-using ControleGastos.Api.Models;
+using ControleFamiliarAPI.Data;
+using ControleFamiliarAPI.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -18,6 +19,7 @@ namespace ControleFamiliarAPI.Services.Implementations
         private readonly UserManager<Usuario> _userManager;
         private readonly SignInManager<Usuario> _signInManager;
         private readonly ICurrentUserService _currentUser;
+        private readonly IFamiliaDtoFactory _familiaDtoFactory;
         private readonly IConfiguration _configuration;
 
         public AuthService(
@@ -25,18 +27,29 @@ namespace ControleFamiliarAPI.Services.Implementations
             UserManager<Usuario> userManager,
             SignInManager<Usuario> signInManager,
             ICurrentUserService currentUser,
+            IFamiliaDtoFactory familiaDtoFactory,
             IConfiguration configuration)
         {
             _context = context;
             _userManager = userManager;
             _signInManager = signInManager;
             _currentUser = currentUser;
+            _familiaDtoFactory = familiaDtoFactory;
             _configuration = configuration;
         }
 
         public async Task<AuthResponseDto> Registrar(RegistrarDto dto)
         {
-            var criandoFamiliaNova = !dto.ModoFamilia.Equals("Entrar", StringComparison.OrdinalIgnoreCase);
+            // ModoFamilia só aceita exatamente "Nova"/"Entrar" (case-insensitive);
+            // qualquer outro valor (typo, string vazia) é rejeitado explicitamente
+            // em vez de cair silenciosamente no branch "Nova".
+            bool criandoFamiliaNova;
+            if (string.Equals(dto.ModoFamilia, "Nova", StringComparison.OrdinalIgnoreCase))
+                criandoFamiliaNova = true;
+            else if (string.Equals(dto.ModoFamilia, "Entrar", StringComparison.OrdinalIgnoreCase))
+                criandoFamiliaNova = false;
+            else
+                throw new BusinessRuleException("ModoFamilia deve ser \"Nova\" ou \"Entrar\".");
 
             // Criar a Familia (via _context) e criar o Usuario (via UserManager,
             // que usa o mesmo AppDbContext) são duas SaveChanges separadas. Sem
@@ -111,7 +124,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Email = usuario.Email!,
                     EhAdministrador = usuario.EhAdministrador
                 },
-                Familia = await MontarFamiliaDto(familia)
+                Familia = await _familiaDtoFactory.MontarFamiliaDto(familia)
             };
         }
 
@@ -120,7 +133,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             var familia = new Familia
             {
                 Nome = string.IsNullOrWhiteSpace(nomeFamilia) ? $"Família de {nomeUsuario}" : nomeFamilia,
-                CodigoConvite = await GerarCodigoConviteUnico()
+                CodigoConvite = await _familiaDtoFactory.GerarCodigoConviteUnico()
             };
 
             _context.Familias.Add(familia);
@@ -143,19 +156,6 @@ namespace ControleFamiliarAPI.Services.Implementations
             return familia;
         }
 
-        private async Task<string> GerarCodigoConviteUnico()
-        {
-            string codigo;
-
-            do
-            {
-                codigo = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
-            }
-            while (await _context.Familias.AnyAsync(f => f.CodigoConvite == codigo));
-
-            return codigo;
-        }
-
         private async Task<AuthResponseDto> MontarResposta(Usuario usuario, Familia familia)
         {
             var (token, expiraEm) = GerarToken(usuario);
@@ -171,24 +171,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Email = usuario.Email!,
                     EhAdministrador = usuario.EhAdministrador
                 },
-                Familia = await MontarFamiliaDto(familia)
-            };
-        }
-
-        private async Task<FamiliaDto> MontarFamiliaDto(Familia familia)
-        {
-            var membros = await _userManager.Users
-                .Where(u => u.FamiliaId == familia.Id)
-                .OrderBy(u => u.Id)
-                .Select(u => new MembroDto { Id = u.Id, Nome = u.Nome, EhAdministrador = u.EhAdministrador })
-                .ToListAsync();
-
-            return new FamiliaDto
-            {
-                Id = familia.Id,
-                Nome = familia.Nome,
-                CodigoConvite = familia.CodigoConvite,
-                Membros = membros
+                Familia = await _familiaDtoFactory.MontarFamiliaDto(familia)
             };
         }
 
@@ -203,8 +186,8 @@ namespace ControleFamiliarAPI.Services.Implementations
             {
                 new(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
                 new(ClaimTypes.Email, usuario.Email!),
-                new("nome", usuario.Nome),
-                new("familiaId", usuario.FamiliaId.ToString())
+                new(ClaimTypesPersonalizados.Nome, usuario.Nome),
+                new(ClaimTypesPersonalizados.FamiliaId, usuario.FamiliaId.ToString())
             };
 
             var token = new JwtSecurityToken(

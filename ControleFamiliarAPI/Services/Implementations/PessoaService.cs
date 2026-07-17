@@ -1,9 +1,8 @@
-using ControleFamiliarAPI.DTO.Pessoa;
-using ControleFamiliarAPI.DTOs;
+using ControleFamiliarAPI.DTOs.Pessoa;
 using ControleFamiliarAPI.Exceptions;
 using ControleFamiliarAPI.Services.Interfaces;
-using ControleGastos.Api.Data;
-using ControleGastos.Api.Models;
+using ControleFamiliarAPI.Data;
+using ControleFamiliarAPI.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControleFamiliarAPI.Services.Implementations

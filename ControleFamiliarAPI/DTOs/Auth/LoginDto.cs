@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ControleFamiliarAPI.DTO.Auth
+namespace ControleFamiliarAPI.DTOs.Auth
 {
     public class LoginDto
     {

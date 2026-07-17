@@ -1,9 +1,9 @@
-﻿using ControleGastos.Api.Models;
+﻿using ControleFamiliarAPI.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
-namespace ControleGastos.Api.Data
+namespace ControleFamiliarAPI.Data
 {
     public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<int>, int>
     {

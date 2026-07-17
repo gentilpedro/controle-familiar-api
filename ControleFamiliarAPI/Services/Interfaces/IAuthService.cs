@@ -1,4 +1,4 @@
-using ControleFamiliarAPI.DTO.Auth;
+using ControleFamiliarAPI.DTOs.Auth;
 
 namespace ControleFamiliarAPI.Services.Interfaces
 {

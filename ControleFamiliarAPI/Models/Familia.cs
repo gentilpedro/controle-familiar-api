@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ControleGastos.Api.Models
+namespace ControleFamiliarAPI.Models
 {
     public class Familia
     {

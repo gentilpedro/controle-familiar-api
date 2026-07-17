@@ -1,5 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using ControleGastos.Api.Models.Enums;
+using ControleFamiliarAPI.Models.Enums;
 
 namespace ControleFamiliarAPI.DTOs.Categoria
 {

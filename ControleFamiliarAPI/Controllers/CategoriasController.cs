@@ -19,7 +19,6 @@ namespace ControleFamiliarAPI.Controllers
             _service = service;
         }
 
-        // GET api/categorias
         [HttpGet]
         [EndpointSummary("Lista todas as categorias cadastradas")]
         [EndpointDescription("""
@@ -38,7 +37,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(await _service.Listar());
         }
 
-        // POST api/categorias
         [HttpPost]
         [EndpointSummary("Cria uma nova categoria financeira")]
         [EndpointDescription("""
@@ -68,7 +66,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(categoria);
         }
 
-        // DELETE api/categorias/{id}
         [HttpDelete("{id}")]
         [EndpointSummary("Remove uma categoria do sistema")]
         [EndpointDescription("""

@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using ControleGastos.Api.Models.Enums;
+using ControleFamiliarAPI.Models.Enums;
 
-namespace ControleGastos.Api.Models
+namespace ControleFamiliarAPI.Models
 {
     public class Categoria
     {

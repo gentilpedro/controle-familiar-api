@@ -1,4 +1,4 @@
-namespace ControleFamiliarAPI.DTO.Auth
+namespace ControleFamiliarAPI.DTOs.Auth
 {
     public class UsuarioDto
     {

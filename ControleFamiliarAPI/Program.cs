@@ -3,8 +3,8 @@ using System.Threading.RateLimiting;
 using ControleFamiliarAPI.Middlewares;
 using ControleFamiliarAPI.Services.Implementations;
 using ControleFamiliarAPI.Services.Interfaces;
-using ControleGastos.Api.Data;
-using ControleGastos.Api.Models;
+using ControleFamiliarAPI.Data;
+using ControleFamiliarAPI.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -70,8 +70,8 @@ builder.Services
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 
-// Add services to the container.
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IFamiliaDtoFactory, FamiliaDtoFactory>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFamiliaService, FamiliaService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -124,11 +124,7 @@ builder.Services.AddOpenApi(options =>
 });
 
 builder.Services.AddControllers();
-
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-
-
 
 var app = builder.Build();
 

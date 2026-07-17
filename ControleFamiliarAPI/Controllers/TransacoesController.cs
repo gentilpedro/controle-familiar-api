@@ -18,7 +18,6 @@ namespace ControleFamiliarAPI.Controllers
             _service = service;
         }
 
-        // GET api/transacoes
         [HttpGet]
         [Tags("Transações")]
         [EndpointSummary("Lista as transações financeiras da família, paginado")]
@@ -44,7 +43,6 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(await _service.Listar(pagina, tamanhoPagina));
         }
 
-        // POST api/transacoes
         [HttpPost]
         [Tags("Transa��es")]
         [EndpointSummary("Cria uma nova transa��o financeira")]

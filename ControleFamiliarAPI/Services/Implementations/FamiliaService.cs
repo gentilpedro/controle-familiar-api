@@ -1,9 +1,9 @@
 using System.Data;
-using ControleFamiliarAPI.DTO.Auth;
+using ControleFamiliarAPI.DTOs.Auth;
 using ControleFamiliarAPI.Exceptions;
 using ControleFamiliarAPI.Services.Interfaces;
-using ControleGastos.Api.Data;
-using ControleGastos.Api.Models;
+using ControleFamiliarAPI.Data;
+using ControleFamiliarAPI.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,22 +15,25 @@ namespace ControleFamiliarAPI.Services.Implementations
         private readonly UserManager<Usuario> _userManager;
         private readonly ICurrentUserService _currentUser;
         private readonly IEmailService _emailService;
+        private readonly IFamiliaDtoFactory _familiaDtoFactory;
 
         public FamiliaService(
             AppDbContext context,
             UserManager<Usuario> userManager,
             ICurrentUserService currentUser,
-            IEmailService emailService)
+            IEmailService emailService,
+            IFamiliaDtoFactory familiaDtoFactory)
         {
             _context = context;
             _userManager = userManager;
             _currentUser = currentUser;
             _emailService = emailService;
+            _familiaDtoFactory = familiaDtoFactory;
         }
 
         public async Task<FamiliaDto> Obter()
         {
-            return await MontarFamiliaDto(await BuscarFamiliaAtual());
+            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual());
         }
 
         public async Task<FamiliaDto> RemoverMembro(int usuarioId)
@@ -59,7 +62,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             var novaFamilia = new Familia
             {
                 Nome = $"Família de {membro.Nome}",
-                CodigoConvite = await GerarCodigoConviteUnico()
+                CodigoConvite = await _familiaDtoFactory.GerarCodigoConviteUnico()
             };
 
             _context.Familias.Add(novaFamilia);
@@ -71,7 +74,7 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             await transacao.CommitAsync();
 
-            return await MontarFamiliaDto(await BuscarFamiliaAtual());
+            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual());
         }
 
         public async Task<FamiliaDto> PromoverAdmin(int usuarioId)
@@ -82,7 +85,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             membro.EhAdministrador = true;
             await _userManager.UpdateAsync(membro);
 
-            return await MontarFamiliaDto(await BuscarFamiliaAtual());
+            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual());
         }
 
         public async Task<FamiliaDto> RebaixarAdmin(int usuarioId)
@@ -112,7 +115,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (linhasAfetadas == 0)
                 throw new BusinessRuleException("A família precisa ter pelo menos um administrador.");
 
-            return await MontarFamiliaDto(await BuscarFamiliaAtual());
+            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual());
         }
 
         public async Task<FamiliaDto> RegenerarCodigoConvite()
@@ -120,10 +123,10 @@ namespace ControleFamiliarAPI.Services.Implementations
             await GarantirAdmin();
 
             var familia = await BuscarFamiliaAtual();
-            familia.CodigoConvite = await GerarCodigoConviteUnico();
+            familia.CodigoConvite = await _familiaDtoFactory.GerarCodigoConviteUnico();
             await _context.SaveChangesAsync();
 
-            return await MontarFamiliaDto(familia);
+            return await _familiaDtoFactory.MontarFamiliaDto(familia);
         }
 
         public async Task ConvidarPorEmail(string email)
@@ -181,34 +184,5 @@ namespace ControleFamiliarAPI.Services.Implementations
                 throw new BusinessRuleException("A família precisa ter pelo menos um administrador.");
         }
 
-        private async Task<string> GerarCodigoConviteUnico()
-        {
-            string codigo;
-
-            do
-            {
-                codigo = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
-            }
-            while (await _context.Familias.AnyAsync(f => f.CodigoConvite == codigo));
-
-            return codigo;
-        }
-
-        private async Task<FamiliaDto> MontarFamiliaDto(Familia familia)
-        {
-            var membros = await _userManager.Users
-                .Where(u => u.FamiliaId == familia.Id)
-                .OrderBy(u => u.Id)
-                .Select(u => new MembroDto { Id = u.Id, Nome = u.Nome, EhAdministrador = u.EhAdministrador })
-                .ToListAsync();
-
-            return new FamiliaDto
-            {
-                Id = familia.Id,
-                Nome = familia.Nome,
-                CodigoConvite = familia.CodigoConvite,
-                Membros = membros
-            };
-        }
     }
 }

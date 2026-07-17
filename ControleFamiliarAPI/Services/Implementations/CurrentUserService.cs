@@ -1,3 +1,4 @@
+using ControleFamiliarAPI.Services;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 
@@ -21,10 +22,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 ?? throw new InvalidOperationException("Claim de usuário não encontrada."));
 
         public int FamiliaId =>
-            int.Parse(User.FindFirst("familiaId")?.Value
+            int.Parse(User.FindFirst(ClaimTypesPersonalizados.FamiliaId)?.Value
                 ?? throw new InvalidOperationException("Claim de família não encontrada."));
-
-        public string Nome =>
-            User.FindFirst("nome")?.Value ?? string.Empty;
     }
 }

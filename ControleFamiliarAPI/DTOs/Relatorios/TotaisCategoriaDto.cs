@@ -1,4 +1,4 @@
-﻿namespace ControleFamiliarAPI.DTO.Relatorios
+﻿namespace ControleFamiliarAPI.DTOs.Relatorios
 {
     public class TotaisCategoriaDto
     {

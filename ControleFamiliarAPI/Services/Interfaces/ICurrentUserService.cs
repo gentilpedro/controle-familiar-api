@@ -9,7 +9,5 @@ namespace ControleFamiliarAPI.Services.Interfaces
         int UsuarioId { get; }
 
         int FamiliaId { get; }
-
-        string Nome { get; }
     }
 }

@@ -1,4 +1,4 @@
-﻿using ControleGastos.Api.Models.Enums;
+﻿using ControleFamiliarAPI.Models.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace ControleFamiliarAPI.DTOs.Transacao
