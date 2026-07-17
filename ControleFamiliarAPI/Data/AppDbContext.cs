@@ -16,6 +16,7 @@ namespace ControleFamiliarAPI.Data
         public DbSet<Categoria> Categorias => Set<Categoria>();
         public DbSet<Transacao> Transacoes => Set<Transacao>();
         public DbSet<Usuario> Usuarios => Set<Usuario>();
+        public DbSet<TokenRevogado> TokensRevogados => Set<TokenRevogado>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -131,6 +132,15 @@ namespace ControleFamiliarAPI.Data
 
                 entity.HasIndex(t => new { t.PessoaId, t.Tipo })
                       .IncludeProperties(t => new { t.Valor });
+            });
+
+            // Configuração da entidade TokenRevogado
+            modelBuilder.Entity<TokenRevogado>(entity =>
+            {
+                entity.HasKey(t => t.Jti);
+
+                entity.Property(t => t.Jti)
+                      .HasMaxLength(64);
             });
         }
     }

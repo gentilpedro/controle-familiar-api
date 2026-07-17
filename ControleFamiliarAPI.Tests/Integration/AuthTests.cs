@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using ControleFamiliarAPI.DTOs.Auth;
+using ControleFamiliarAPI.Models;
 using ControleFamiliarAPI.Tests.Infrastructure;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ControleFamiliarAPI.Tests.Integration;
 
@@ -62,5 +65,60 @@ public class AuthTests : IntegrationTestBase
         var response = await Client.GetAsync("/api/pessoas");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Registrar_ComSenhaMenorQueOMinimo_Retorna400()
+    {
+        var dto = new RegistrarDto
+        {
+            Nome = "Usuário Teste",
+            Email = $"{Guid.NewGuid():N}@teste.com",
+            Senha = "abc123", // 6 caracteres — política atual exige 8
+            ModoFamilia = "Nova"
+        };
+
+        var response = await Client.PostAsJsonAsync("/api/auth/registrar", dto, AuthTestHelper.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Logout_RevogaToken_UsoPosteriorRetorna401()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var logoutResponse = await Client.PostAsync("/api/auth/logout", null);
+        logoutResponse.EnsureSuccessStatusCode();
+
+        var response = await Client.GetAsync("/api/pessoas");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ConfirmarEmail_ComTokenValido_Confirma()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+
+        using var scope = Factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
+        var usuario = await userManager.FindByIdAsync(auth.Usuario.Id.ToString());
+        var token = await userManager.GenerateEmailConfirmationTokenAsync(usuario!);
+
+        var response = await Client.GetAsync($"/api/auth/confirmar-email?usuarioId={auth.Usuario.Id}&token={Uri.EscapeDataString(token)}");
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task ConfirmarEmail_ComTokenInvalido_Retorna400()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+
+        var response = await Client.GetAsync($"/api/auth/confirmar-email?usuarioId={auth.Usuario.Id}&token=token-invalido");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }
