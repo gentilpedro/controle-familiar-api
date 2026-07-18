@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using ControleFamiliarAPI.DTOs.Auth;
 using ControleFamiliarAPI.Models;
+using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Tests.Infrastructure;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
@@ -118,6 +119,100 @@ public class AuthTests : IntegrationTestBase
         var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
 
         var response = await Client.GetAsync($"/api/auth/confirmar-email?usuarioId={auth.Usuario.Id}&token=token-invalido");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AtualizarPerfil_AlterandoNome_Persiste()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var dto = new AtualizarPerfilDto { Nome = "Nome Atualizado" };
+        var response = await Client.PatchAsJsonAsync("/api/auth/me", dto, AuthTestHelper.JsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<MeDto>>(AuthTestHelper.JsonOptions);
+        Assert.Equal("Nome Atualizado", envelope!.Data!.Usuario.Nome);
+    }
+
+    [Fact]
+    public async Task AtualizarPerfil_AlterandoEmail_MarcaComoNaoConfirmado()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: $"{Guid.NewGuid():N}@teste.com");
+        Client.ComToken(auth.Token);
+
+        var novoEmail = $"{Guid.NewGuid():N}@teste.com";
+        var dto = new AtualizarPerfilDto { Email = novoEmail };
+        var response = await Client.PatchAsJsonAsync("/api/auth/me", dto, AuthTestHelper.JsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<MeDto>>(AuthTestHelper.JsonOptions);
+        Assert.Equal(novoEmail, envelope!.Data!.Usuario.Email);
+        Assert.False(envelope.Data.Usuario.EmailConfirmado);
+    }
+
+    [Fact]
+    public async Task ExcluirConta_UnicoMembroDaFamilia_RemoveContaEDados()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var response = await Client.DeleteAsync("/api/auth/me");
+        response.EnsureSuccessStatusCode();
+
+        var meResponse = await Client.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.Unauthorized, meResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExcluirConta_FamiliaCompartilhada_MembroComum_RemoveSoAConta()
+    {
+        var admin = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: $"{Guid.NewGuid():N}@teste.com");
+
+        var membroDto = new RegistrarDto
+        {
+            Nome = "Membro Comum",
+            Email = $"{Guid.NewGuid():N}@teste.com",
+            Senha = "Senha123",
+            ModoFamilia = "Entrar",
+            CodigoConvite = admin.Familia.CodigoConvite
+        };
+        var membroResponse = await Client.PostAsJsonAsync("/api/auth/registrar", membroDto, AuthTestHelper.JsonOptions);
+        membroResponse.EnsureSuccessStatusCode();
+        var membroEnvelope = await membroResponse.Content.ReadFromJsonAsync<ApiResponse<AuthResponseDto>>(AuthTestHelper.JsonOptions);
+
+        Client.ComToken(membroEnvelope!.Data!.Token);
+
+        var deleteResponse = await Client.DeleteAsync("/api/auth/me");
+        deleteResponse.EnsureSuccessStatusCode();
+
+        // Dados da família continuam intactos para o admin.
+        Client.ComToken(admin.Token);
+        var pessoasResponse = await Client.GetAsync("/api/pessoas");
+        pessoasResponse.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task ExcluirConta_UnicoAdminDeFamiliaCompartilhada_Retorna400()
+    {
+        var admin = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: $"{Guid.NewGuid():N}@teste.com");
+
+        var membroDto = new RegistrarDto
+        {
+            Nome = "Membro Comum",
+            Email = $"{Guid.NewGuid():N}@teste.com",
+            Senha = "Senha123",
+            ModoFamilia = "Entrar",
+            CodigoConvite = admin.Familia.CodigoConvite
+        };
+        var membroResponse = await Client.PostAsJsonAsync("/api/auth/registrar", membroDto, AuthTestHelper.JsonOptions);
+        membroResponse.EnsureSuccessStatusCode();
+
+        Client.ComToken(admin.Token);
+
+        var response = await Client.DeleteAsync("/api/auth/me");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
