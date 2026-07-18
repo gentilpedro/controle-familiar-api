@@ -235,6 +235,71 @@ namespace ControleFamiliarAPI.Services.Implementations
                 throw new BusinessRuleException(string.Join(" ", resultado.Errors.Select(e => e.Description)));
         }
 
+        public async Task<ExportacaoDadosDto> ExportarDados(CancellationToken cancellationToken = default)
+        {
+            var usuario = await _userManager.FindByIdAsync(_currentUser.UsuarioId.ToString())
+                ?? throw new UnauthorizedException("Usuário não encontrado.");
+
+            var familia = await _context.Familias.FindAsync(new object?[] { usuario.FamiliaId }, cancellationToken)
+                ?? throw new Exception("Família do usuário não encontrada.");
+
+            var pessoas = await _context.Pessoas
+                .Where(p => p.FamiliaId == usuario.FamiliaId)
+                .Select(p => new ExportacaoPessoaDto { Id = p.Id, Nome = p.Nome, Idade = p.Idade })
+                .ToListAsync(cancellationToken);
+
+            // Finalidade/Tipo são materializados como enum primeiro e só
+            // convertidos pra texto depois de trazer os dados (ToString() em
+            // enum dentro de um Select não tem tradução garantida pra SQL em
+            // todo provider — mais seguro resolver em memória).
+            var categoriasBrutas = await _context.Categorias
+                .Where(c => c.FamiliaId == usuario.FamiliaId)
+                .Select(c => new { c.Id, c.Descricao, c.Finalidade })
+                .ToListAsync(cancellationToken);
+
+            var categorias = categoriasBrutas
+                .Select(c => new ExportacaoCategoriaDto { Id = c.Id, Descricao = c.Descricao, Finalidade = c.Finalidade.ToString() })
+                .ToList();
+
+            var transacoesBrutas = await _context.Transacoes
+                .Where(t => t.FamiliaId == usuario.FamiliaId)
+                .Select(t => new { t.Id, t.Descricao, t.Valor, t.Tipo, Pessoa = t.Pessoa!.Nome, Categoria = t.Categoria!.Descricao })
+                .ToListAsync(cancellationToken);
+
+            var transacoes = transacoesBrutas
+                .Select(t => new ExportacaoTransacaoDto
+                {
+                    Id = t.Id,
+                    Descricao = t.Descricao,
+                    Valor = t.Valor,
+                    Tipo = t.Tipo.ToString(),
+                    Pessoa = t.Pessoa,
+                    Categoria = t.Categoria
+                })
+                .ToList();
+
+            return new ExportacaoDadosDto
+            {
+                Usuario = new ExportacaoUsuarioDto
+                {
+                    Id = usuario.Id,
+                    Nome = usuario.Nome,
+                    Email = usuario.Email!,
+                    EhAdministrador = usuario.EhAdministrador
+                },
+                Familia = new ExportacaoFamiliaDto
+                {
+                    Id = familia.Id,
+                    Nome = familia.Nome,
+                    CodigoConvite = familia.CodigoConvite,
+                    CriadoEm = familia.CriadoEm
+                },
+                Pessoas = pessoas,
+                Categorias = categorias,
+                Transacoes = transacoes
+            };
+        }
+
         private async Task RevogarTokenAtual(CancellationToken cancellationToken)
         {
             var httpContext = _httpContextAccessor.HttpContext
