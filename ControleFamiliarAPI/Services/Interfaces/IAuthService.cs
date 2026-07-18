@@ -14,6 +14,8 @@ namespace ControleFamiliarAPI.Services.Interfaces
 
         Task ExcluirConta(CancellationToken cancellationToken = default);
 
+        Task<ExportacaoDadosDto> ExportarDados(CancellationToken cancellationToken = default);
+
         Task Logout(CancellationToken cancellationToken = default);
 
         Task ConfirmarEmail(int usuarioId, string token, CancellationToken cancellationToken = default);

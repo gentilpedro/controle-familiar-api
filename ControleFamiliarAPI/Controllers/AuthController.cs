@@ -86,6 +86,23 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<MeDto>(resultado));
         }
 
+        [HttpGet("exportar-dados")]
+        [Authorize]
+        [Tags("Autenticação")]
+        [EndpointSummary("Exporta todos os dados pessoais do usuário autenticado")]
+        [EndpointDescription("""
+            Retorna, em um único JSON, todos os dados pessoais tratados pelo
+            sistema em nome do usuário autenticado: seus próprios dados, os
+            da família e todas as pessoas, categorias e transações
+            compartilhadas (LGPD, art. 18, V — direito à portabilidade).
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<ActionResult> ExportarDados(CancellationToken cancellationToken)
+        {
+            var resultado = await _service.ExportarDados(cancellationToken);
+            return Ok(new ApiResponse<ExportacaoDadosDto>(resultado));
+        }
+
         [HttpDelete("me")]
         [Authorize]
         [Tags("Autenticação")]

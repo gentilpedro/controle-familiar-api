@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using ControleFamiliarAPI.DTOs.Auth;
+using ControleFamiliarAPI.DTOs.Categoria;
+using ControleFamiliarAPI.DTOs.Pessoa;
 using ControleFamiliarAPI.Models;
+using ControleFamiliarAPI.Models.Enums;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Tests.Infrastructure;
 using Microsoft.AspNetCore.Identity;
@@ -151,6 +154,32 @@ public class AuthTests : IntegrationTestBase
         var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<MeDto>>(AuthTestHelper.JsonOptions);
         Assert.Equal(novoEmail, envelope!.Data!.Usuario.Email);
         Assert.False(envelope.Data.Usuario.EmailConfirmado);
+    }
+
+    [Fact]
+    public async Task ExportarDados_RetornaUsuarioFamiliaPessoasCategoriasETransacoes()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var pessoaResponse = await Client.PostAsJsonAsync("/api/pessoas", new PessoaCreateDto { Nome = "Filho", Idade = 10 }, AuthTestHelper.JsonOptions);
+        pessoaResponse.EnsureSuccessStatusCode();
+
+        var categoriaResponse = await Client.PostAsJsonAsync("/api/categorias", new CategoriaCreateDto { Descricao = "Mesada", Finalidade = FinalidadeCategoria.Despesa }, AuthTestHelper.JsonOptions);
+        categoriaResponse.EnsureSuccessStatusCode();
+
+        var response = await Client.GetAsync("/api/auth/exportar-dados");
+        response.EnsureSuccessStatusCode();
+
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<ExportacaoDadosDto>>(AuthTestHelper.JsonOptions);
+        var dados = envelope!.Data!;
+
+        Assert.Equal(auth.Usuario.Email, dados.Usuario.Email);
+        Assert.Equal(auth.Familia.CodigoConvite, dados.Familia.CodigoConvite);
+        Assert.Single(dados.Pessoas);
+        Assert.Equal("Filho", dados.Pessoas[0].Nome);
+        Assert.Single(dados.Categorias);
+        Assert.Equal("Despesa", dados.Categorias[0].Finalidade);
     }
 
     [Fact]
