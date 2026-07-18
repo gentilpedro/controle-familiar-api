@@ -22,11 +22,11 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Resumo financeiro por pessoa")]
         [EndpointDescription("""
             Retorna o total de receitas, despesas e saldo agrupado por pessoa.
-            
+
             Este endpoint é utilizado para geração de gráficos e dashboards.
-            
+
             Exemplo de resposta:
-            
+
             {
               "pessoas": [
                 {
@@ -45,9 +45,9 @@ namespace ControleFamiliarAPI.Controllers
             }
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult> TotaisPorPessoa()
+        public async Task<ActionResult> TotaisPorPessoa(CancellationToken cancellationToken)
         {
-            var result = await _relatorioService.TotaisPorPessoa();
+            var result = await _relatorioService.TotaisPorPessoa(cancellationToken);
             return Ok(result);
         }
 
@@ -56,11 +56,11 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Resumo de despesas por categoria")]
         [EndpointDescription("""
             Retorna o total de despesas agrupadas por categoria.
-            
+
             Utilizado para grficos de distribuio de gastos.
-            
+
             Exemplo de resposta:
-            
+
             [
               {
                 "categoria": "Alimentação",
@@ -77,9 +77,9 @@ namespace ControleFamiliarAPI.Controllers
             ]
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult> TotaisPorCategoria()
+        public async Task<ActionResult> TotaisPorCategoria(CancellationToken cancellationToken)
         {
-            var result = await _relatorioService.TotaisPorCategoria();
+            var result = await _relatorioService.TotaisPorCategoria(cancellationToken);
             return Ok(result);
         }
 
@@ -88,18 +88,18 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Exporta relatório financeiro por pessoa (Excel)")]
         [EndpointDescription("""
             Gera um arquivo Excel contendo:
-            
+
             - Pessoa
             - Total de Receitas
             - Total de Despesas
             - Saldo
-            
+
             O arquivo é retornado como download no formato .xlsx.
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> ExcelPessoa()
+        public async Task<IActionResult> ExcelPessoa(CancellationToken cancellationToken)
         {
-            var file = await _relatorioService.GerarExcelTotaisPessoa();
+            var file = await _relatorioService.GerarExcelTotaisPessoa(cancellationToken);
 
             return File(
                 file,
@@ -113,16 +113,16 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Exporta relatório de despesas por categoria (Excel)")]
         [EndpointDescription("""
             Gera um arquivo Excel contendo:
-            
+
             - Categoria
             - Total gasto
-            
+
             O arquivo é retornado como download no formato .xlsx.
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> ExcelCategoria()
+        public async Task<IActionResult> ExcelCategoria(CancellationToken cancellationToken)
         {
-            var file = await _relatorioService.GerarExcelTotaisCategoria();
+            var file = await _relatorioService.GerarExcelTotaisCategoria(cancellationToken);
 
             return File(
                 file,

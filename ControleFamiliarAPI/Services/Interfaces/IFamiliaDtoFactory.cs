@@ -10,8 +10,8 @@ namespace ControleFamiliarAPI.Services.Interfaces
     /// </summary>
     public interface IFamiliaDtoFactory
     {
-        Task<string> GerarCodigoConviteUnico();
+        Task<string> GerarCodigoConviteUnico(CancellationToken cancellationToken = default);
 
-        Task<FamiliaDto> MontarFamiliaDto(Familia familia);
+        Task<FamiliaDto> MontarFamiliaDto(Familia familia, CancellationToken cancellationToken = default);
     }
 }

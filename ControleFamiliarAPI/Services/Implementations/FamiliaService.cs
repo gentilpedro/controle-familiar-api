@@ -31,12 +31,12 @@ namespace ControleFamiliarAPI.Services.Implementations
             _familiaDtoFactory = familiaDtoFactory;
         }
 
-        public async Task<FamiliaDto> Obter()
+        public async Task<FamiliaDto> Obter(CancellationToken cancellationToken = default)
         {
-            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual());
+            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual(cancellationToken), cancellationToken);
         }
 
-        public async Task<FamiliaDto> RemoverMembro(int usuarioId)
+        public async Task<FamiliaDto> RemoverMembro(int usuarioId, CancellationToken cancellationToken = default)
         {
             await GarantirAdmin();
 
@@ -51,49 +51,49 @@ namespace ControleFamiliarAPI.Services.Implementations
             // uma escrever, deixando a família sem nenhum administrador.
             // A transação também garante que a criação da nova família
             // individual e a atualização do membro sejam tudo-ou-nada.
-            await using var transacao = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            await using var transacao = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
 
-            var membro = await BuscarMembro(usuarioId);
+            var membro = await BuscarMembro(usuarioId, cancellationToken);
 
-            await GarantirQueSobraAdmin(usuarioId);
+            await GarantirQueSobraAdmin(usuarioId, cancellationToken);
 
             // O removido não fica sem família: ganha uma família nova e
             // individual, da qual é o único membro e administrador.
             var novaFamilia = new Familia
             {
                 Nome = $"Família de {membro.Nome}",
-                CodigoConvite = await _familiaDtoFactory.GerarCodigoConviteUnico()
+                CodigoConvite = await _familiaDtoFactory.GerarCodigoConviteUnico(cancellationToken)
             };
 
             _context.Familias.Add(novaFamilia);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
             membro.FamiliaId = novaFamilia.Id;
             membro.EhAdministrador = true;
             await _userManager.UpdateAsync(membro);
 
-            await transacao.CommitAsync();
+            await transacao.CommitAsync(cancellationToken);
 
-            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual());
+            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual(cancellationToken), cancellationToken);
         }
 
-        public async Task<FamiliaDto> PromoverAdmin(int usuarioId)
+        public async Task<FamiliaDto> PromoverAdmin(int usuarioId, CancellationToken cancellationToken = default)
         {
             await GarantirAdmin();
 
-            var membro = await BuscarMembro(usuarioId);
+            var membro = await BuscarMembro(usuarioId, cancellationToken);
             membro.EhAdministrador = true;
             await _userManager.UpdateAsync(membro);
 
-            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual());
+            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual(cancellationToken), cancellationToken);
         }
 
-        public async Task<FamiliaDto> RebaixarAdmin(int usuarioId)
+        public async Task<FamiliaDto> RebaixarAdmin(int usuarioId, CancellationToken cancellationToken = default)
         {
             await GarantirAdmin();
 
             var membroExiste = await _userManager.Users
-                .AnyAsync(u => u.Id == usuarioId && u.FamiliaId == _currentUser.FamiliaId);
+                .AnyAsync(u => u.Id == usuarioId && u.FamiliaId == _currentUser.FamiliaId, cancellationToken);
 
             if (!membroExiste)
                 throw new NotFoundException("Membro não encontrado nesta família.");
@@ -110,37 +110,40 @@ namespace ControleFamiliarAPI.Services.Implementations
                         outro.FamiliaId == _currentUser.FamiliaId
                         && outro.EhAdministrador
                         && outro.Id != usuarioId) > 0)
-                .ExecuteUpdateAsync(s => s.SetProperty(u => u.EhAdministrador, false));
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.EhAdministrador, false), cancellationToken);
 
             if (linhasAfetadas == 0)
                 throw new BusinessRuleException("A família precisa ter pelo menos um administrador.");
 
-            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual());
+            return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual(cancellationToken), cancellationToken);
         }
 
-        public async Task<FamiliaDto> RegenerarCodigoConvite()
+        public async Task<FamiliaDto> RegenerarCodigoConvite(CancellationToken cancellationToken = default)
         {
             await GarantirAdmin();
 
-            var familia = await BuscarFamiliaAtual();
-            familia.CodigoConvite = await _familiaDtoFactory.GerarCodigoConviteUnico();
-            await _context.SaveChangesAsync();
+            var familia = await BuscarFamiliaAtual(cancellationToken);
+            familia.CodigoConvite = await _familiaDtoFactory.GerarCodigoConviteUnico(cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
 
-            return await _familiaDtoFactory.MontarFamiliaDto(familia);
+            return await _familiaDtoFactory.MontarFamiliaDto(familia, cancellationToken);
         }
 
-        public async Task ConvidarPorEmail(string email)
+        public async Task ConvidarPorEmail(string email, CancellationToken cancellationToken = default)
         {
             var admin = await GarantirAdmin();
 
             if (string.IsNullOrWhiteSpace(email))
                 throw new BusinessRuleException("Informe um e-mail válido.");
 
-            var familia = await BuscarFamiliaAtual();
+            var familia = await BuscarFamiliaAtual(cancellationToken);
 
-            await _emailService.EnviarConviteFamilia(email.Trim(), familia.Nome, familia.CodigoConvite, admin.Nome);
+            await _emailService.EnviarConviteFamilia(email.Trim(), familia.Nome, familia.CodigoConvite, admin.Nome, cancellationToken);
         }
 
+        // UserManager não expõe overloads com CancellationToken — os métodos
+        // abaixo que só o usam (FindByIdAsync/UpdateAsync) não têm token pra
+        // repassar.
         private async Task<Usuario> GarantirAdmin()
         {
             var usuario = await _userManager.FindByIdAsync(_currentUser.UsuarioId.ToString())
@@ -152,16 +155,16 @@ namespace ControleFamiliarAPI.Services.Implementations
             return usuario;
         }
 
-        private async Task<Usuario> BuscarMembro(int usuarioId)
+        private async Task<Usuario> BuscarMembro(int usuarioId, CancellationToken cancellationToken)
         {
             return await _userManager.Users
-                .FirstOrDefaultAsync(u => u.Id == usuarioId && u.FamiliaId == _currentUser.FamiliaId)
+                .FirstOrDefaultAsync(u => u.Id == usuarioId && u.FamiliaId == _currentUser.FamiliaId, cancellationToken)
                 ?? throw new NotFoundException("Membro não encontrado nesta família.");
         }
 
-        private async Task<Familia> BuscarFamiliaAtual()
+        private async Task<Familia> BuscarFamiliaAtual(CancellationToken cancellationToken)
         {
-            return await _context.Familias.FindAsync(_currentUser.FamiliaId)
+            return await _context.Familias.FindAsync(new object?[] { _currentUser.FamiliaId }, cancellationToken)
                 ?? throw new Exception("Família não encontrada.");
         }
 
@@ -169,20 +172,19 @@ namespace ControleFamiliarAPI.Services.Implementations
         /// Garante que, ao remover/rebaixar <paramref name="usuarioId"/>, a
         /// família continua com pelo menos um administrador.
         /// </summary>
-        private async Task GarantirQueSobraAdmin(int usuarioId)
+        private async Task GarantirQueSobraAdmin(int usuarioId, CancellationToken cancellationToken)
         {
             var eraAdmin = await _userManager.Users
-                .AnyAsync(u => u.Id == usuarioId && u.EhAdministrador);
+                .AnyAsync(u => u.Id == usuarioId && u.EhAdministrador, cancellationToken);
 
             if (!eraAdmin)
                 return;
 
             var outrosAdmins = await _userManager.Users
-                .CountAsync(u => u.FamiliaId == _currentUser.FamiliaId && u.EhAdministrador && u.Id != usuarioId);
+                .CountAsync(u => u.FamiliaId == _currentUser.FamiliaId && u.EhAdministrador && u.Id != usuarioId, cancellationToken);
 
             if (outrosAdmins == 0)
                 throw new BusinessRuleException("A família precisa ter pelo menos um administrador.");
         }
-
     }
 }

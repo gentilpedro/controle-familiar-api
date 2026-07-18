@@ -48,7 +48,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             _logger = logger;
         }
 
-        public async Task<AuthResponseDto> Registrar(RegistrarDto dto)
+        public async Task<AuthResponseDto> Registrar(RegistrarDto dto, CancellationToken cancellationToken = default)
         {
             // ModoFamilia só aceita exatamente "Nova"/"Entrar" (case-insensitive);
             // qualquer outro valor (typo, string vazia) é rejeitado explicitamente
@@ -65,11 +65,11 @@ namespace ControleFamiliarAPI.Services.Implementations
             // que usa o mesmo AppDbContext) são duas SaveChanges separadas. Sem
             // uma transação cobrindo as duas, uma falha no CreateAsync (ex.:
             // e-mail duplicado) deixaria a Familia já persistida órfã no banco.
-            await using var transacao = await _context.Database.BeginTransactionAsync();
+            await using var transacao = await _context.Database.BeginTransactionAsync(cancellationToken);
 
             var familia = criandoFamiliaNova
-                ? await CriarFamilia(dto.NomeFamilia, dto.Nome)
-                : await EntrarEmFamilia(dto.CodigoConvite);
+                ? await CriarFamilia(dto.NomeFamilia, dto.Nome, cancellationToken)
+                : await EntrarEmFamilia(dto.CodigoConvite, cancellationToken);
 
             var usuario = new Usuario
             {
@@ -87,18 +87,18 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (!resultado.Succeeded)
                 throw new BusinessRuleException(string.Join(" ", resultado.Errors.Select(e => e.Description)));
 
-            await transacao.CommitAsync();
+            await transacao.CommitAsync(cancellationToken);
 
             // Best-effort: e-mail de confirmação não é obrigatório pro cadastro
             // funcionar (SMTP pode não estar configurado neste ambiente — mesma
             // filosofia do convite de família). Uma falha aqui não deve derrubar
             // um cadastro que já foi persistido com sucesso.
-            await EnviarEmailConfirmacaoAsync(usuario);
+            await EnviarEmailConfirmacaoAsync(usuario, cancellationToken);
 
-            return await MontarResposta(usuario, familia);
+            return await MontarResposta(usuario, familia, cancellationToken);
         }
 
-        public async Task<AuthResponseDto> Login(LoginDto dto)
+        public async Task<AuthResponseDto> Login(LoginDto dto, CancellationToken cancellationToken = default)
         {
             var usuario = await _userManager.FindByEmailAsync(dto.Email);
 
@@ -117,28 +117,28 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (!resultado.Succeeded)
                 throw new UnauthorizedException("Email ou senha inválidos.");
 
-            var familia = await _context.Familias.FindAsync(usuario.FamiliaId)
+            var familia = await _context.Familias.FindAsync(new object?[] { usuario.FamiliaId }, cancellationToken)
                 ?? throw new Exception("Família do usuário não encontrada.");
 
-            return await MontarResposta(usuario, familia);
+            return await MontarResposta(usuario, familia, cancellationToken);
         }
 
-        public async Task<MeDto> Me()
+        public async Task<MeDto> Me(CancellationToken cancellationToken = default)
         {
             var usuario = await _userManager.FindByIdAsync(_currentUser.UsuarioId.ToString())
                 ?? throw new UnauthorizedException("Usuário não encontrado.");
 
-            var familia = await _context.Familias.FindAsync(usuario.FamiliaId)
+            var familia = await _context.Familias.FindAsync(new object?[] { usuario.FamiliaId }, cancellationToken)
                 ?? throw new Exception("Família do usuário não encontrada.");
 
             return new MeDto
             {
                 Usuario = MontarUsuarioDto(usuario),
-                Familia = await _familiaDtoFactory.MontarFamiliaDto(familia)
+                Familia = await _familiaDtoFactory.MontarFamiliaDto(familia, cancellationToken)
             };
         }
 
-        public async Task Logout()
+        public async Task Logout(CancellationToken cancellationToken = default)
         {
             var httpContext = _httpContextAccessor.HttpContext
                 ?? throw new InvalidOperationException("Nenhum contexto HTTP disponível.");
@@ -154,7 +154,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             // antes de vencer, não de todo token emitido.
             await _context.TokensRevogados
                 .Where(t => t.ExpiraEm < DateTime.UtcNow)
-                .ExecuteDeleteAsync();
+                .ExecuteDeleteAsync(cancellationToken);
 
             _context.TokensRevogados.Add(new TokenRevogado
             {
@@ -162,10 +162,10 @@ namespace ControleFamiliarAPI.Services.Implementations
                 ExpiraEm = DateTimeOffset.FromUnixTimeSeconds(expUnix).UtcDateTime
             });
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task ConfirmarEmail(int usuarioId, string token)
+        public async Task ConfirmarEmail(int usuarioId, string token, CancellationToken cancellationToken = default)
         {
             var usuario = await _userManager.FindByIdAsync(usuarioId.ToString())
                 ?? throw new NotFoundException("Usuário não encontrado.");
@@ -176,27 +176,27 @@ namespace ControleFamiliarAPI.Services.Implementations
                 throw new BusinessRuleException("Link de confirmação inválido ou expirado.");
         }
 
-        private async Task<Familia> CriarFamilia(string? nomeFamilia, string nomeUsuario)
+        private async Task<Familia> CriarFamilia(string? nomeFamilia, string nomeUsuario, CancellationToken cancellationToken)
         {
             var familia = new Familia
             {
                 Nome = string.IsNullOrWhiteSpace(nomeFamilia) ? $"Família de {nomeUsuario}" : nomeFamilia,
-                CodigoConvite = await _familiaDtoFactory.GerarCodigoConviteUnico()
+                CodigoConvite = await _familiaDtoFactory.GerarCodigoConviteUnico(cancellationToken)
             };
 
             _context.Familias.Add(familia);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
             return familia;
         }
 
-        private async Task<Familia> EntrarEmFamilia(string? codigoConvite)
+        private async Task<Familia> EntrarEmFamilia(string? codigoConvite, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(codigoConvite))
                 throw new BusinessRuleException("Informe o código de convite da família.");
 
             var familia = await _context.Familias
-                .FirstOrDefaultAsync(f => f.CodigoConvite == codigoConvite.Trim().ToUpperInvariant());
+                .FirstOrDefaultAsync(f => f.CodigoConvite == codigoConvite.Trim().ToUpperInvariant(), cancellationToken);
 
             if (familia == null)
                 throw new BusinessRuleException("Código de convite inválido.");
@@ -204,7 +204,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             return familia;
         }
 
-        private async Task<AuthResponseDto> MontarResposta(Usuario usuario, Familia familia)
+        private async Task<AuthResponseDto> MontarResposta(Usuario usuario, Familia familia, CancellationToken cancellationToken)
         {
             var (token, expiraEm) = GerarToken(usuario);
 
@@ -213,7 +213,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 Token = token,
                 ExpiraEm = expiraEm,
                 Usuario = MontarUsuarioDto(usuario),
-                Familia = await _familiaDtoFactory.MontarFamiliaDto(familia)
+                Familia = await _familiaDtoFactory.MontarFamiliaDto(familia, cancellationToken)
             };
         }
 
@@ -226,7 +226,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             EmailConfirmado = usuario.EmailConfirmed
         };
 
-        private async Task EnviarEmailConfirmacaoAsync(Usuario usuario)
+        private async Task EnviarEmailConfirmacaoAsync(Usuario usuario, CancellationToken cancellationToken)
         {
             try
             {
@@ -234,7 +234,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 var frontendUrl = _configuration["Frontend:BaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
                 var link = $"{frontendUrl}/confirmar-email?usuarioId={usuario.Id}&token={Uri.EscapeDataString(token)}";
 
-                await _emailService.EnviarConfirmacaoEmail(usuario.Email!, usuario.Nome, link);
+                await _emailService.EnviarConfirmacaoEmail(usuario.Email!, usuario.Nome, link, cancellationToken);
             }
             catch (Exception ex)
             {

@@ -4,16 +4,16 @@ namespace ControleFamiliarAPI.Services.Interfaces
 {
     public interface IFamiliaService
     {
-        Task<FamiliaDto> Obter();
+        Task<FamiliaDto> Obter(CancellationToken cancellationToken = default);
 
-        Task<FamiliaDto> RemoverMembro(int usuarioId);
+        Task<FamiliaDto> RemoverMembro(int usuarioId, CancellationToken cancellationToken = default);
 
-        Task<FamiliaDto> PromoverAdmin(int usuarioId);
+        Task<FamiliaDto> PromoverAdmin(int usuarioId, CancellationToken cancellationToken = default);
 
-        Task<FamiliaDto> RebaixarAdmin(int usuarioId);
+        Task<FamiliaDto> RebaixarAdmin(int usuarioId, CancellationToken cancellationToken = default);
 
-        Task<FamiliaDto> RegenerarCodigoConvite();
+        Task<FamiliaDto> RegenerarCodigoConvite(CancellationToken cancellationToken = default);
 
-        Task ConvidarPorEmail(string email);
+        Task ConvidarPorEmail(string email, CancellationToken cancellationToken = default);
     }
 }

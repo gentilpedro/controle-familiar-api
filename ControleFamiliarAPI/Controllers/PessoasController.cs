@@ -24,19 +24,19 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Lista todas as pessoas cadastradas")]
         [EndpointDescription("""
             Retorna todas as pessoas registradas no sistema.
-            
+
             Cada pessoa possui:
             - Identificador único
             - Nome
             - Idade
-            
+
             Essas informações são utilizadas para vincular transações financeiras
             ao responsável pela receita ou despesa.
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult> Listar()
+        public async Task<ActionResult> Listar(CancellationToken cancellationToken)
         {
-            return Ok(await _service.Listar());
+            return Ok(await _service.Listar(cancellationToken));
         }
 
         [HttpPost]
@@ -44,11 +44,11 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Cria uma nova pessoa")]
         [EndpointDescription("""
             Registra uma nova pessoa que poderá realizar transações financeiras.
-            
+
             Dados necessários:
             - Nome (máximo de 200 caracteres)
             - Idade
-            
+
             Regras de negócio:
             - Pessoas menores de 18 anos não podem registrar receitas
             - Ao remover uma pessoa, todas as transações associadas a ela
@@ -56,9 +56,9 @@ namespace ControleFamiliarAPI.Controllers
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult> Criar(PessoaCreateDto dto)
+        public async Task<ActionResult> Criar(PessoaCreateDto dto, CancellationToken cancellationToken)
         {
-            var pessoa = await _service.Criar(dto);
+            var pessoa = await _service.Criar(dto, cancellationToken);
             return Ok(new ApiResponse<object>(pessoa));
         }
 
@@ -71,9 +71,9 @@ namespace ControleFamiliarAPI.Controllers
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult> Atualizar(int id, PessoaUpdateDto dto)
+        public async Task<ActionResult> Atualizar(int id, PessoaUpdateDto dto, CancellationToken cancellationToken)
         {
-            await _service.Atualizar(id, dto);
+            await _service.Atualizar(id, dto, cancellationToken);
             return Ok(new ApiResponse<string>("Pessoa atualizada com sucesso"));
         }
 
@@ -82,16 +82,16 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Remove uma pessoa do sistema")]
         [EndpointDescription("""
             Remove uma pessoa cadastrada através do seu identificador.
-            
+
             Importante:
             - Todas as transações associadas a essa pessoa
               serão removidas automaticamente do sistema
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult> Deletar(int id)
+        public async Task<ActionResult> Deletar(int id, CancellationToken cancellationToken)
         {
-            await _service.Deletar(id);
+            await _service.Deletar(id, cancellationToken);
             return Ok(new ApiResponse<string>("Pessoa removida com sucesso"));
         }
     }

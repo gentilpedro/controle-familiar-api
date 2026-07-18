@@ -4,10 +4,10 @@ namespace ControleFamiliarAPI.Services.Interfaces
 {
     public interface IRelatorioService
     {
-        Task<ResumoPessoasDto> TotaisPorPessoa();
-        Task<List<TotaisCategoriaDto>> TotaisPorCategoria();
-        Task<byte[]> GerarExcelTotaisPessoa();
-        Task<byte[]> GerarExcelTotaisCategoria();
+        Task<ResumoPessoasDto> TotaisPorPessoa(CancellationToken cancellationToken = default);
+        Task<List<TotaisCategoriaDto>> TotaisPorCategoria(CancellationToken cancellationToken = default);
+        Task<byte[]> GerarExcelTotaisPessoa(CancellationToken cancellationToken = default);
+        Task<byte[]> GerarExcelTotaisCategoria(CancellationToken cancellationToken = default);
     }
 
 }
