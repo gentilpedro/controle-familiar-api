@@ -17,6 +17,7 @@ namespace ControleFamiliarAPI.Data
         public DbSet<Transacao> Transacoes => Set<Transacao>();
         public DbSet<Usuario> Usuarios => Set<Usuario>();
         public DbSet<TokenRevogado> TokensRevogados => Set<TokenRevogado>();
+        public DbSet<RegistroAuditoria> RegistrosAuditoria => Set<RegistroAuditoria>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -141,6 +142,22 @@ namespace ControleFamiliarAPI.Data
 
                 entity.Property(t => t.Jti)
                       .HasMaxLength(64);
+            });
+
+            // Configuração da entidade RegistroAuditoria — sem HasOne/FK de
+            // propósito (ver comentário no model): é um log somente-inserção
+            // que precisa sobreviver à exclusão do Usuario/Familia que ele
+            // descreve.
+            modelBuilder.Entity<RegistroAuditoria>(entity =>
+            {
+                entity.HasKey(r => r.Id);
+
+                entity.Property(r => r.Acao)
+                      .IsRequired()
+                      .HasMaxLength(50);
+
+                // Consulta mais comum: auditoria de uma família, mais recente primeiro.
+                entity.HasIndex(r => new { r.FamiliaId, r.CriadoEm });
             });
         }
     }

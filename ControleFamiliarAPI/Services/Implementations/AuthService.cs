@@ -25,6 +25,7 @@ namespace ControleFamiliarAPI.Services.Implementations
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthService> _logger;
+        private readonly IAuditoriaService _auditoria;
 
         public AuthService(
             AppDbContext context,
@@ -35,7 +36,8 @@ namespace ControleFamiliarAPI.Services.Implementations
             IEmailService emailService,
             IHttpContextAccessor httpContextAccessor,
             IConfiguration configuration,
-            ILogger<AuthService> logger)
+            ILogger<AuthService> logger,
+            IAuditoriaService auditoria)
         {
             _context = context;
             _userManager = userManager;
@@ -46,6 +48,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             _httpContextAccessor = httpContextAccessor;
             _configuration = configuration;
             _logger = logger;
+            _auditoria = auditoria;
         }
 
         public async Task<AuthResponseDto> Registrar(RegistrarDto dto, CancellationToken cancellationToken = default)
@@ -207,6 +210,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 await _context.Pessoas.Where(p => p.FamiliaId == familiaId).ExecuteDeleteAsync(cancellationToken);
                 await _context.Categorias.Where(c => c.FamiliaId == familiaId).ExecuteDeleteAsync(cancellationToken);
 
+                await _auditoria.Registrar("ExclusaoConta", cancellationToken: cancellationToken);
                 await RevogarTokenAtual(cancellationToken);
 
                 var resultadoExclusao = await _userManager.DeleteAsync(usuario);
@@ -228,6 +232,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 throw new BusinessRuleException(
                     "Você é o único administrador desta família. Promova outro membro a administrador antes de excluir sua conta.");
 
+            await _auditoria.Registrar("ExclusaoConta", cancellationToken: cancellationToken);
             await RevogarTokenAtual(cancellationToken);
 
             var resultado = await _userManager.DeleteAsync(usuario);

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using ControleFamiliarAPI.Data;
 using ControleFamiliarAPI.DTOs.Auth;
 using ControleFamiliarAPI.DTOs.Categoria;
 using ControleFamiliarAPI.DTOs.Pessoa;
@@ -8,6 +9,7 @@ using ControleFamiliarAPI.Models.Enums;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Tests.Infrastructure;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ControleFamiliarAPI.Tests.Integration;
@@ -193,6 +195,30 @@ public class AuthTests : IntegrationTestBase
 
         var meResponse = await Client.GetAsync("/api/auth/me");
         Assert.Equal(HttpStatusCode.Unauthorized, meResponse.StatusCode);
+    }
+
+    /// <summary>
+    /// LGPD, art. 37 (bloco 4): o registro de auditoria não pode depender de
+    /// FK para Usuario/Familia porque ExcluirConta apaga os dois na mesma
+    /// transação em que a auditoria é gravada — este teste confirma que o
+    /// registro sobrevive à exclusão.
+    /// </summary>
+    [Fact]
+    public async Task ExcluirConta_UnicoMembroDaFamilia_RegistraAuditoriaMesmoApagandoUsuarioEFamilia()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var response = await Client.DeleteAsync("/api/auth/me");
+        response.EnsureSuccessStatusCode();
+
+        using var scope = Factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var registro = await context.RegistrosAuditoria
+            .SingleOrDefaultAsync(r => r.Acao == "ExclusaoConta" && r.UsuarioId == auth.Usuario.Id);
+
+        Assert.NotNull(registro);
+        Assert.Equal(auth.Familia.Id, registro!.FamiliaId);
     }
 
     [Fact]
