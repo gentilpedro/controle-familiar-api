@@ -68,6 +68,49 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<MeDto>(resultado));
         }
 
+        [HttpPatch("me")]
+        [Authorize]
+        [Tags("Autenticação")]
+        [EndpointSummary("Atualiza nome e/ou e-mail do usuário autenticado")]
+        [EndpointDescription("""
+            Atualização parcial: campos omitidos permanecem inalterados.
+
+            Alterar o e-mail marca-o como não confirmado novamente e reenvia
+            o e-mail de confirmação.
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult> AtualizarPerfil(AtualizarPerfilDto dto, CancellationToken cancellationToken)
+        {
+            var resultado = await _service.AtualizarPerfil(dto, cancellationToken);
+            return Ok(new ApiResponse<MeDto>(resultado));
+        }
+
+        [HttpDelete("me")]
+        [Authorize]
+        [Tags("Autenticação")]
+        [EndpointSummary("Exclui a conta do usuário autenticado")]
+        [EndpointDescription("""
+            Exclui definitivamente a conta do usuário autenticado (LGPD, art. 18, VI).
+
+            - Se for o único membro da família, os dados dessa família
+              (pessoas, categorias, transações) também são excluídos — não
+              sobra dado órfão.
+            - Se a família for compartilhada, apenas a conta do usuário é
+              removida; os dados continuam disponíveis para os demais membros.
+            - Se for o único administrador de uma família compartilhada, é
+              preciso promover outro administrador antes de excluir a conta.
+
+            A operação é irreversível.
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult> ExcluirConta(CancellationToken cancellationToken)
+        {
+            await _service.ExcluirConta(cancellationToken);
+            return Ok(new ApiResponse<string>("Conta excluída com sucesso."));
+        }
+
         [HttpPost("logout")]
         [Authorize]
         [Tags("Autenticação")]

@@ -10,6 +10,10 @@ namespace ControleFamiliarAPI.Services.Interfaces
 
         Task<MeDto> Me(CancellationToken cancellationToken = default);
 
+        Task<MeDto> AtualizarPerfil(AtualizarPerfilDto dto, CancellationToken cancellationToken = default);
+
+        Task ExcluirConta(CancellationToken cancellationToken = default);
+
         Task Logout(CancellationToken cancellationToken = default);
 
         Task ConfirmarEmail(int usuarioId, string token, CancellationToken cancellationToken = default);

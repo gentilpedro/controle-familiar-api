@@ -140,6 +140,103 @@ namespace ControleFamiliarAPI.Services.Implementations
 
         public async Task Logout(CancellationToken cancellationToken = default)
         {
+            await RevogarTokenAtual(cancellationToken);
+        }
+
+        public async Task<MeDto> AtualizarPerfil(AtualizarPerfilDto dto, CancellationToken cancellationToken = default)
+        {
+            var usuario = await _userManager.FindByIdAsync(_currentUser.UsuarioId.ToString())
+                ?? throw new UnauthorizedException("Usuário não encontrado.");
+
+            if (!string.IsNullOrWhiteSpace(dto.Nome))
+                usuario.Nome = dto.Nome;
+
+            var emailAlterado = !string.IsNullOrWhiteSpace(dto.Email)
+                && !string.Equals(dto.Email, usuario.Email, StringComparison.OrdinalIgnoreCase);
+
+            if (emailAlterado)
+            {
+                // SetEmailAsync já persiste o usuário inteiro (inclusive o
+                // Nome alterado acima, mesmo AppDbContext) e zera
+                // EmailConfirmed — por isso reenviamos a confirmação abaixo.
+                var resultadoEmail = await _userManager.SetEmailAsync(usuario, dto.Email!);
+                if (!resultadoEmail.Succeeded)
+                    throw new BusinessRuleException(string.Join(" ", resultadoEmail.Errors.Select(e => e.Description)));
+
+                await _userManager.SetUserNameAsync(usuario, dto.Email!);
+                await EnviarEmailConfirmacaoAsync(usuario, cancellationToken);
+            }
+            else
+            {
+                var resultado = await _userManager.UpdateAsync(usuario);
+                if (!resultado.Succeeded)
+                    throw new BusinessRuleException(string.Join(" ", resultado.Errors.Select(e => e.Description)));
+            }
+
+            var familia = await _context.Familias.FindAsync(new object?[] { usuario.FamiliaId }, cancellationToken)
+                ?? throw new Exception("Família do usuário não encontrada.");
+
+            return new MeDto
+            {
+                Usuario = MontarUsuarioDto(usuario),
+                Familia = await _familiaDtoFactory.MontarFamiliaDto(familia, cancellationToken)
+            };
+        }
+
+        public async Task ExcluirConta(CancellationToken cancellationToken = default)
+        {
+            var usuario = await _userManager.FindByIdAsync(_currentUser.UsuarioId.ToString())
+                ?? throw new UnauthorizedException("Usuário não encontrado.");
+
+            var familiaId = usuario.FamiliaId;
+
+            var outrosMembros = await _userManager.Users
+                .Where(u => u.FamiliaId == familiaId && u.Id != usuario.Id)
+                .ToListAsync(cancellationToken);
+
+            if (outrosMembros.Count == 0)
+            {
+                // Único membro da família: ninguém mais usa esses dados, então
+                // excluir a conta (LGPD, art. 18, VI) leva junto pessoas,
+                // categorias e transações — sem isso sobraria dado órfão sem
+                // titular. Ordem respeita as FKs Restrict (Transacao antes de
+                // Pessoa/Categoria, Usuario antes de Familia).
+                await using var transacaoDb = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+                await _context.Transacoes.Where(t => t.FamiliaId == familiaId).ExecuteDeleteAsync(cancellationToken);
+                await _context.Pessoas.Where(p => p.FamiliaId == familiaId).ExecuteDeleteAsync(cancellationToken);
+                await _context.Categorias.Where(c => c.FamiliaId == familiaId).ExecuteDeleteAsync(cancellationToken);
+
+                await RevogarTokenAtual(cancellationToken);
+
+                var resultadoExclusao = await _userManager.DeleteAsync(usuario);
+                if (!resultadoExclusao.Succeeded)
+                    throw new BusinessRuleException(string.Join(" ", resultadoExclusao.Errors.Select(e => e.Description)));
+
+                await _context.Familias.Where(f => f.Id == familiaId).ExecuteDeleteAsync(cancellationToken);
+
+                await transacaoDb.CommitAsync(cancellationToken);
+                return;
+            }
+
+            // Família compartilhada: pessoas/categorias/transações continuam
+            // existindo para os outros membros — só a conta de quem está se
+            // excluindo é removida. Se for o único admin, precisa promover
+            // outro antes, senão a família fica sem administrador (mesma
+            // invariante de FamiliaService.GarantirQueSobraAdmin).
+            if (usuario.EhAdministrador && !outrosMembros.Any(m => m.EhAdministrador))
+                throw new BusinessRuleException(
+                    "Você é o único administrador desta família. Promova outro membro a administrador antes de excluir sua conta.");
+
+            await RevogarTokenAtual(cancellationToken);
+
+            var resultado = await _userManager.DeleteAsync(usuario);
+            if (!resultado.Succeeded)
+                throw new BusinessRuleException(string.Join(" ", resultado.Errors.Select(e => e.Description)));
+        }
+
+        private async Task RevogarTokenAtual(CancellationToken cancellationToken)
+        {
             var httpContext = _httpContextAccessor.HttpContext
                 ?? throw new InvalidOperationException("Nenhum contexto HTTP disponível.");
 
