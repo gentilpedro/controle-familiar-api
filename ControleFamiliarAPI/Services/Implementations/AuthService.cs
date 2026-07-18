@@ -400,7 +400,14 @@ namespace ControleFamiliarAPI.Services.Implementations
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Falha ao enviar e-mail de confirmação para o usuário {UsuarioId}", usuario.Id);
+                // Não loga o objeto de exceção inteiro de propósito: uma
+                // SmtpException, por exemplo, pode ecoar o e-mail do
+                // destinatário na própria mensagem — o tipo da exceção já
+                // basta pra triagem, sem arriscar vazar dado pessoal no log.
+                _logger.LogWarning(
+                    "Falha ao enviar e-mail de confirmação para o usuário {UsuarioId} ({TipoExcecao}).",
+                    usuario.Id,
+                    ex.GetType().Name);
             }
         }
 

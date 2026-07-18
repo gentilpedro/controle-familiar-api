@@ -32,6 +32,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 <p>Para entrar, cadastre-se usando o código de convite abaixo:</p>
                 <p style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">{codigoConvite}</p>
                 <p>Ou clique direto no link: <a href="{linkConvite}">{linkConvite}</a></p>
+                <p style="color: #6b7280; font-size: 13px;">Você recebeu este e-mail porque {convidadoPorSeguro} informou este endereço ao usar o recurso de convite do Controle Financeiro. Se não reconhece o convite, pode ignorar esta mensagem — nenhuma conta será criada sem que você complete o cadastro.</p>
                 """;
 
             return EnviarAsync(destinatario, assunto, corpo, cancellationToken);
