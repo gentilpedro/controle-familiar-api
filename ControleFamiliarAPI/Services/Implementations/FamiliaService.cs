@@ -16,19 +16,22 @@ namespace ControleFamiliarAPI.Services.Implementations
         private readonly ICurrentUserService _currentUser;
         private readonly IEmailService _emailService;
         private readonly IFamiliaDtoFactory _familiaDtoFactory;
+        private readonly IAuditoriaService _auditoria;
 
         public FamiliaService(
             AppDbContext context,
             UserManager<Usuario> userManager,
             ICurrentUserService currentUser,
             IEmailService emailService,
-            IFamiliaDtoFactory familiaDtoFactory)
+            IFamiliaDtoFactory familiaDtoFactory,
+            IAuditoriaService auditoria)
         {
             _context = context;
             _userManager = userManager;
             _currentUser = currentUser;
             _emailService = emailService;
             _familiaDtoFactory = familiaDtoFactory;
+            _auditoria = auditoria;
         }
 
         public async Task<FamiliaDto> Obter(CancellationToken cancellationToken = default)
@@ -72,6 +75,8 @@ namespace ControleFamiliarAPI.Services.Implementations
             membro.EhAdministrador = true;
             await _userManager.UpdateAsync(membro);
 
+            await _auditoria.Registrar("RemocaoMembro", usuarioId, cancellationToken);
+
             await transacao.CommitAsync(cancellationToken);
 
             return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual(cancellationToken), cancellationToken);
@@ -84,6 +89,8 @@ namespace ControleFamiliarAPI.Services.Implementations
             var membro = await BuscarMembro(usuarioId, cancellationToken);
             membro.EhAdministrador = true;
             await _userManager.UpdateAsync(membro);
+
+            await _auditoria.Registrar("PromocaoAdmin", usuarioId, cancellationToken);
 
             return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual(cancellationToken), cancellationToken);
         }
@@ -114,6 +121,8 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             if (linhasAfetadas == 0)
                 throw new BusinessRuleException("A família precisa ter pelo menos um administrador.");
+
+            await _auditoria.Registrar("RebaixamentoAdmin", usuarioId, cancellationToken);
 
             return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual(cancellationToken), cancellationToken);
         }

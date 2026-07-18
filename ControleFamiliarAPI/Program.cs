@@ -115,6 +115,7 @@ builder.Services.AddResponseCompression(options =>
 });
 
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IAuditoriaService, AuditoriaService>();
 builder.Services.AddScoped<IFamiliaDtoFactory, FamiliaDtoFactory>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFamiliaService, FamiliaService>();
