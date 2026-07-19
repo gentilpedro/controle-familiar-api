@@ -27,6 +27,31 @@ if (string.IsNullOrWhiteSpace(jwtKey))
     throw new InvalidOperationException(
         "Jwt:Key não configurada. Em desenvolvimento, use 'dotnet user-secrets set Jwt:Key \"...\"'; em produção, defina a variável de ambiente Jwt__Key.");
 
+// Stripe: segredos e Price IDs falham rápido igual ao Jwt/ConnectionString
+// acima - sem eles nenhuma parte do fluxo de assinatura funciona, e um
+// erro obscuro só na primeira chamada seria pior do que falhar já no boot.
+var stripeSecretKey = builder.Configuration["Stripe:SecretKey"];
+if (string.IsNullOrWhiteSpace(stripeSecretKey))
+    throw new InvalidOperationException(
+        "Stripe:SecretKey não configurada. Em desenvolvimento, use 'dotnet user-secrets set Stripe:SecretKey \"sk_test_...\"'; em produção, defina a variável de ambiente Stripe__SecretKey.");
+
+var stripeWebhookSecret = builder.Configuration["Stripe:WebhookSecret"];
+if (string.IsNullOrWhiteSpace(stripeWebhookSecret))
+    throw new InvalidOperationException(
+        "Stripe:WebhookSecret não configurada. Em desenvolvimento, use 'dotnet user-secrets set Stripe:WebhookSecret \"whsec_...\"'; em produção, defina a variável de ambiente Stripe__WebhookSecret.");
+
+var stripePriceIndividualId = builder.Configuration["Stripe:PriceIndividualId"];
+if (string.IsNullOrWhiteSpace(stripePriceIndividualId))
+    throw new InvalidOperationException(
+        "Stripe:PriceIndividualId não configurada. Em desenvolvimento, use 'dotnet user-secrets set Stripe:PriceIndividualId \"price_...\"'; em produção, defina a variável de ambiente Stripe__PriceIndividualId.");
+
+var stripePriceFamiliaId = builder.Configuration["Stripe:PriceFamiliaId"];
+if (string.IsNullOrWhiteSpace(stripePriceFamiliaId))
+    throw new InvalidOperationException(
+        "Stripe:PriceFamiliaId não configurada. Em desenvolvimento, use 'dotnet user-secrets set Stripe:PriceFamiliaId \"price_...\"'; em produção, defina a variável de ambiente Stripe__PriceFamiliaId.");
+
+Stripe.StripeConfiguration.ApiKey = stripeSecretKey;
+
 // Em testes de integração (ambiente "Testing"), o AppDbContext real (SQL
 // Server) não é registrado aqui — o CustomWebApplicationFactory dos testes
 // registra o próprio, apontando pra SQLite em memória.
