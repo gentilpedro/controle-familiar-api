@@ -11,13 +11,13 @@ public class IsolamentoPorFamiliaTests : IntegrationTestBase
     [Fact]
     public async Task Pessoas_UsuarioNaoVePessoasDeOutraFamilia()
     {
-        var usuarioA = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: "familia-a@teste.com");
+        var usuarioA = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client, email: "familia-a@teste.com");
         Client.ComToken(usuarioA.Token);
         var criarResponse = await Client.PostAsJsonAsync("/api/pessoas", new PessoaCreateDto { Nome = "Pessoa da Família A", Idade = 40 }, AuthTestHelper.JsonOptions);
         criarResponse.EnsureSuccessStatusCode();
 
         using var clienteB = Factory.CreateClient();
-        var usuarioB = await AuthTestHelper.RegistrarNovaFamiliaAsync(clienteB, email: "familia-b@teste.com");
+        var usuarioB = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, clienteB, email: "familia-b@teste.com");
         clienteB.ComToken(usuarioB.Token);
 
         var listaB = await clienteB.GetFromJsonAsync<List<PessoaResponseDto>>("/api/pessoas", AuthTestHelper.JsonOptions);
@@ -28,14 +28,14 @@ public class IsolamentoPorFamiliaTests : IntegrationTestBase
     [Fact]
     public async Task Pessoas_DeletarPessoaDeOutraFamilia_Retorna404()
     {
-        var usuarioA = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: "dono@teste.com");
+        var usuarioA = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client, email: "dono@teste.com");
         Client.ComToken(usuarioA.Token);
         var criarResponse = await Client.PostAsJsonAsync("/api/pessoas", new PessoaCreateDto { Nome = "Pessoa da Família A", Idade = 40 }, AuthTestHelper.JsonOptions);
         var criada = await criarResponse.Content.ReadFromJsonAsync<ApiResponse<PessoaResponseDto>>(AuthTestHelper.JsonOptions);
         var pessoaIdDaFamiliaA = criada!.Data!.Id;
 
         using var clienteB = Factory.CreateClient();
-        var usuarioB = await AuthTestHelper.RegistrarNovaFamiliaAsync(clienteB, email: "invasor@teste.com");
+        var usuarioB = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, clienteB, email: "invasor@teste.com");
         clienteB.ComToken(usuarioB.Token);
 
         var deleteResponse = await clienteB.DeleteAsync($"/api/pessoas/{pessoaIdDaFamiliaA}");

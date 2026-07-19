@@ -368,6 +368,12 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (familia == null)
                 throw new BusinessRuleException("Código de convite inválido.");
 
+            // Teto do plano Família: acima de 5 membros ninguém mais entra
+            // por convite, mesmo que a assinatura esteja ativa.
+            var totalMembros = await _userManager.Users.CountAsync(u => u.FamiliaId == familia.Id, cancellationToken);
+            if (totalMembros >= 5)
+                throw new BusinessRuleException("Esta família já atingiu o limite máximo de 5 membros.");
+
             return familia;
         }
 

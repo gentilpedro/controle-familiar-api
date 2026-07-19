@@ -57,6 +57,7 @@ namespace ControleFamiliarAPI.Middlewares
             UnauthorizedException => (StatusCodes.Status401Unauthorized, ex.Message),
             ForbiddenException => (StatusCodes.Status403Forbidden, ex.Message),
             NotFoundException => (StatusCodes.Status404NotFound, ex.Message),
+            PagamentoRequeridoException => (StatusCodes.Status402PaymentRequired, ex.Message),
             BusinessRuleException => (StatusCodes.Status400BadRequest, ex.Message),
             DbUpdateException => (StatusCodes.Status409Conflict, "Não foi possível concluir a operação: o registro está em uso ou conflita com outro dado existente."),
             _ => (StatusCodes.Status500InternalServerError, "Ocorreu um erro interno. Tente novamente mais tarde.")

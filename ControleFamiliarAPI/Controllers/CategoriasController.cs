@@ -1,4 +1,5 @@
 using ControleFamiliarAPI.DTOs.Categoria;
+using ControleFamiliarAPI.Filters;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,7 @@ namespace ControleFamiliarAPI.Controllers
     [ApiController]
     [Route("api/categorias")]
     [Authorize]
+    [ExigirAssinatura]
     public class CategoriasController : ControllerBase
     {
         private readonly ICategoriaService _service;

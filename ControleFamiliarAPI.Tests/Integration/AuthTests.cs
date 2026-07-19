@@ -19,7 +19,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task Registrar_ComModoFamiliaNova_CriaContaERetornaToken()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
 
         Assert.False(string.IsNullOrWhiteSpace(auth.Token));
         Assert.True(auth.Usuario.EhAdministrador);
@@ -45,7 +45,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task Login_ComSenhaErrada_Retorna401()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: "login-errado@teste.com", senha: "SenhaCorreta1");
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client, email: "login-errado@teste.com", senha: "SenhaCorreta1");
 
         var login = new LoginDto { Email = "login-errado@teste.com", Senha = "SenhaErrada1" };
         var response = await Client.PostAsJsonAsync("/api/auth/login", login, AuthTestHelper.JsonOptions);
@@ -57,7 +57,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task Login_ComCredenciaisCorretas_RetornaToken()
     {
-        await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: "login-ok@teste.com", senha: "SenhaCorreta1");
+        await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client, email: "login-ok@teste.com", senha: "SenhaCorreta1");
 
         var login = new LoginDto { Email = "login-ok@teste.com", Senha = "SenhaCorreta1" };
         var response = await Client.PostAsJsonAsync("/api/auth/login", login, AuthTestHelper.JsonOptions);
@@ -92,7 +92,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task Logout_RevogaToken_UsoPosteriorRetorna401()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
         Client.ComToken(auth.Token);
 
         var logoutResponse = await Client.PostAsync("/api/auth/logout", null);
@@ -106,7 +106,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task ConfirmarEmail_ComTokenValido_Confirma()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
 
         using var scope = Factory.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
@@ -121,7 +121,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task ConfirmarEmail_ComTokenInvalido_Retorna400()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
 
         var response = await Client.GetAsync($"/api/auth/confirmar-email?usuarioId={auth.Usuario.Id}&token=token-invalido");
 
@@ -131,7 +131,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task AtualizarPerfil_AlterandoNome_Persiste()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
         Client.ComToken(auth.Token);
 
         var dto = new AtualizarPerfilDto { Nome = "Nome Atualizado" };
@@ -145,7 +145,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task AtualizarPerfil_AlterandoEmail_MarcaComoNaoConfirmado()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: $"{Guid.NewGuid():N}@teste.com");
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client, email: $"{Guid.NewGuid():N}@teste.com");
         Client.ComToken(auth.Token);
 
         var novoEmail = $"{Guid.NewGuid():N}@teste.com";
@@ -161,7 +161,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task ExportarDados_RetornaUsuarioFamiliaPessoasCategoriasETransacoes()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
         Client.ComToken(auth.Token);
 
         var pessoaResponse = await Client.PostAsJsonAsync("/api/pessoas", new PessoaCreateDto { Nome = "Filho", Idade = 10 }, AuthTestHelper.JsonOptions);
@@ -187,7 +187,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task ExcluirConta_UnicoMembroDaFamilia_RemoveContaEDados()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
         Client.ComToken(auth.Token);
 
         var response = await Client.DeleteAsync("/api/auth/me");
@@ -206,7 +206,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task ExcluirConta_UnicoMembroDaFamilia_RegistraAuditoriaMesmoApagandoUsuarioEFamilia()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
         Client.ComToken(auth.Token);
 
         var response = await Client.DeleteAsync("/api/auth/me");
@@ -224,7 +224,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task ExcluirConta_FamiliaCompartilhada_MembroComum_RemoveSoAConta()
     {
-        var admin = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: $"{Guid.NewGuid():N}@teste.com");
+        var admin = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client, email: $"{Guid.NewGuid():N}@teste.com");
 
         var membroDto = new RegistrarDto
         {
@@ -252,7 +252,7 @@ public class AuthTests : IntegrationTestBase
     [Fact]
     public async Task ExcluirConta_UnicoAdminDeFamiliaCompartilhada_Retorna400()
     {
-        var admin = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: $"{Guid.NewGuid():N}@teste.com");
+        var admin = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client, email: $"{Guid.NewGuid():N}@teste.com");
 
         var membroDto = new RegistrarDto
         {
