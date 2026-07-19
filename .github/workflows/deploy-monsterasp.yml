@@ -67,6 +67,10 @@ jobs:
              --arg smtpUsername "${{ secrets.SMTP_USERNAME }}" \
              --arg smtpPassword "${{ secrets.SMTP_PASSWORD }}" \
              --arg smtpFrom "${{ secrets.SMTP_FROM }}" \
+             --arg stripeSecretKey "${{ secrets.STRIPE_SECRET_KEY }}" \
+             --arg stripeWebhookSecret "${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
+             --arg stripePriceIndividualId "${{ secrets.STRIPE_PRICE_INDIVIDUAL_ID }}" \
+             --arg stripePriceFamiliaId "${{ secrets.STRIPE_PRICE_FAMILIA_ID }}" \
              '.ConnectionStrings.DefaultConnection = $cs
               | .Jwt.Key = $jwt
               | .Cors.AllowedOrigins = [$origin]
@@ -77,7 +81,11 @@ jobs:
               | .Smtp.Port = (if $smtpPort == "" then 587 else ($smtpPort | tonumber) end)
               | .Smtp.Username = $smtpUsername
               | .Smtp.Password = $smtpPassword
-              | .Smtp.From = $smtpFrom' \
+              | .Smtp.From = $smtpFrom
+              | .Stripe.SecretKey = $stripeSecretKey
+              | .Stripe.WebhookSecret = $stripeWebhookSecret
+              | .Stripe.PriceIndividualId = $stripePriceIndividualId
+              | .Stripe.PriceFamiliaId = $stripePriceFamiliaId' \
              ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json > ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json.tmp
           mv ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json.tmp ${{ env.PUBLISH_OUTPUT }}/appsettings.Production.json
 
