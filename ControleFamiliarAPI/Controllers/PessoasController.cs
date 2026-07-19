@@ -1,4 +1,5 @@
 using ControleFamiliarAPI.DTOs.Pessoa;
+using ControleFamiliarAPI.Filters;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -10,6 +11,7 @@ namespace ControleFamiliarAPI.Controllers
     [ApiController]
     [Route("api/pessoas")]
     [Authorize]
+    [ExigirAssinatura]
     public class PessoasController : ControllerBase
     {
         private readonly IPessoaService _service;

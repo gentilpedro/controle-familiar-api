@@ -26,7 +26,7 @@ public class TransacoesTests : IntegrationTestBase
     [Fact]
     public async Task Criar_ComMenorDeIdadeERegistrandoReceita_Retorna400()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
         Client.ComToken(auth.Token);
 
         var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 15, FinalidadeCategoria.Ambas);
@@ -40,7 +40,7 @@ public class TransacoesTests : IntegrationTestBase
     [Fact]
     public async Task Criar_ComCategoriaIncompativelComOTipo_Retorna400()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
         Client.ComToken(auth.Token);
 
         var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Despesa);
@@ -54,7 +54,7 @@ public class TransacoesTests : IntegrationTestBase
     [Fact]
     public async Task Criar_ComDadosValidos_CriaEApareceNaListagem()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
         Client.ComToken(auth.Token);
 
         var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);

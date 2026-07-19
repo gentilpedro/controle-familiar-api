@@ -1,4 +1,5 @@
 using ControleFamiliarAPI.DTOs.Transacao;
+using ControleFamiliarAPI.Filters;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,7 @@ namespace ControleFamiliarAPI.Controllers
     [ApiController]
     [Route("api/transacoes")]
     [Authorize]
+    [ExigirAssinatura]
     public class TransacoesController : ControllerBase
     {
         private readonly ITransacaoService _service;

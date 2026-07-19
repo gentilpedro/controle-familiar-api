@@ -1,3 +1,4 @@
+using ControleFamiliarAPI.Filters;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ namespace ControleFamiliarAPI.Controllers
     [ApiController]
     [Route("api/relatorios")]
     [Authorize]
+    [ExigirAssinatura]
     public class RelatoriosController : ControllerBase
     {
         private readonly IRelatorioService _relatorioService;

@@ -19,7 +19,7 @@ public class FamiliaTests : IntegrationTestBase
     [Fact]
     public async Task Rebaixar_UnicoEUltimoAdministrador_Retorna400()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
         Client.ComToken(auth.Token);
 
         var response = await Client.PostAsync($"/api/familia/membros/{auth.Usuario.Id}/rebaixar", null);
@@ -30,7 +30,7 @@ public class FamiliaTests : IntegrationTestBase
     [Fact]
     public async Task RemoverMembro_ASiMesmo_Retorna400()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
         Client.ComToken(auth.Token);
 
         var response = await Client.DeleteAsync($"/api/familia/membros/{auth.Usuario.Id}");
@@ -45,7 +45,7 @@ public class FamiliaTests : IntegrationTestBase
     [Fact]
     public async Task RemoverMembro_RegistraAuditoria()
     {
-        var admin = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: $"{Guid.NewGuid():N}@teste.com");
+        var admin = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client, email: $"{Guid.NewGuid():N}@teste.com");
 
         var membroDto = new RegistrarDto
         {
