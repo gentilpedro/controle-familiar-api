@@ -7,92 +7,60 @@ produção e SQLite em memória nos testes de integração. Frontend irmão: `co
 ## Padrão de trabalho ("bloco")
 
 Uma mudança de escopo focado = uma branch = um PR = um merge. Sempre verificar com
-`dotnet build && dotnet test` antes do merge. O agente (Claude) normalmente não tem `dotnet`, `gh` nem
-credenciais de push disponíveis no seu sandbox — cada bloco é implementado e commitado localmente, e o
-build/teste/push/PR são delegados ao usuário com os comandos exatos.
+`dotnet build && dotnet test` antes do merge.
 
-## Assinatura paga via Stripe (implementada em 2026-07)
+## Acesso: uso livre
 
-O app deixou de ser gratuito: acesso aos dados financeiros (Pessoas, Categorias, Transações,
-Relatórios) agora exige assinatura mensal ativa via Stripe.
+O app **não tem cobrança**. Toda conta autenticada acessa Pessoas, Categorias, Transações e
+Relatórios; o controle de acesso é só o JWT mais o isolamento por família. Não existe paywall, plano,
+trial nem teto de membros por família.
 
-### Regras de negócio
+## Assinatura via Stripe — revertida em 2026-08-11
 
-- **Dois planos mensais, preço fixo** (sem tiers/por-assento): **Individual** (mais barato, libera só
-  quem assina) e **Família** (mais caro, libera todos os membros da família enquanto ativo — teto de
-  **5 pessoas por família**, validado em `AuthService.EntrarEmFamilia`).
-- **Trial de 7 dias, só no plano Individual.** Contado por usuário (`Usuario.TrialIndividualUsado`),
-  não por data de cadastro da conta — mesmo quem já tinha família antes e migra pro Individual tem
-  direito ao trial na primeira vez que assina.
-- **Controle de acesso em tempo real** (HTTP 402), sem migração de dados quando o pagamento atrasa.
-  Sair da família continua sendo só via remoção/exclusão — sem relação com pagamento.
-- **Grandfathering das contas 1-5** (as contas reais de produção existentes antes da feature, todas do
-  próprio usuário/dono do projeto): marcadas como assinantes ativos direto via `migrationBuilder.Sql`
-  na migration `AddAssinaturas`, sem passar pelo Stripe.
-- **Stripe 100% hospedado**: Checkout Session, Customer Portal e Smart Retries — sem UI de pagamento
-  customizada.
+A cobrança chegou a ser implementada (PRs #25 a #29) e foi revertida antes de entrar em uso. Vale
+saber por quê, para não reintroduzir o problema:
 
-### Arquitetura (nesta API)
+- A API ficou **fora do ar desde 19/07** com `HTTP 500.30`. O `Program.cs` fazia fail-fast em
+  `Stripe:SecretKey`, `Stripe:WebhookSecret`, `Stripe:PriceIndividualId` e `Stripe:PriceFamiliaId`,
+  mas os quatro secrets correspondentes nunca foram criados no GitHub. Um secret inexistente vira
+  string vazia, o `jq` gravava `""` no `appsettings.Production.json` e a aplicação morria no boot.
+- Lição: **fail-fast em configuração opcional derruba o serviço inteiro.** Se a cobrança voltar,
+  ou o Stripe entra como opcional (sem chave = assinatura desligada, resto da API no ar), ou os
+  secrets são criados no mesmo PR que introduz a validação.
 
-- `Models/Enums/StatusAssinatura.cs` (`Nenhuma, EmTeste, Ativa, Inadimplente, Cancelada`) e
-  `Models/Enums/TipoPlano.cs` (`Individual = 1, Familia = 2`).
-- `Usuario`: `StripeCustomerId`, `StripeSubscriptionIdIndividual`, `StatusAssinaturaIndividual`,
-  `AssinaturaIndividualValidaAte`, `TrialIndividualUsado`.
-- `Familia`: `StripeCustomerId`, `StripeSubscriptionIdFamilia`, `StatusAssinaturaFamilia`,
-  `AssinaturaFamiliaValidaAte`.
-- `Services/Implementations/AssinaturaService.cs` — toda a lógica: `CriarCheckoutSession`,
-  `ObterStatus`, `CriarPortalSession`, `ProcessarWebhookAsync` (trata `checkout.session.completed`,
-  `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`,
-  `customer.subscription.deleted`). É o único lugar que escreve `Status*`/`StripeSubscriptionId*`/
-  `*ValidaAte`/`TrialIndividualUsado` — sempre buscando a Subscription atual no Stripe antes de gravar,
-  nunca confiando cegamente no payload do evento.
-- `Controllers/AssinaturaController.cs` (`POST /api/assinatura/checkout`, `GET /api/assinatura/status`,
-  `POST /api/assinatura/portal`, `[Authorize]`) e `Controllers/StripeWebhookController.cs`
-  (`POST /api/webhooks/stripe`, `[AllowAnonymous]`, valida assinatura HMAC via `Stripe-Signature`).
-- `Filters/ExigirAssinaturaAttribute.cs` — `IAsyncActionFilter` que devolve 402 se `!TemAcesso`.
-  Aplicado só em `PessoasController`, `CategoriasController`, `TransacoesController`,
-  `RelatoriosController` — **não** em Auth/Familia/Assinatura, pra quem não pagou conseguir gerenciar a
-  conta e ir assinar.
-- `Exceptions/PagamentoRequeridoException.cs`, mapeada pelo `ErrorMiddleware` pro HTTP 402, mesmo
-  padrão das outras exceções de domínio (`BusinessRuleException`, `ForbiddenException`, etc.).
-- Config: `Stripe:SecretKey`, `Stripe:WebhookSecret`, `Stripe:PriceIndividualId`,
-  `Stripe:PriceFamiliaId`, `Stripe:TrialDiasIndividual` — fail-fast no `Program.cs`, mesmo padrão do
-  `Jwt:Key`/`ConnectionStrings:DefaultConnection`. **O código nunca referencia valores em reais** — só
-  Price IDs. Preço é decisão livre no Dashboard do Stripe, sem precisar mudar código.
+O código está preservado na branch **`backup/assinatura-stripe`**, que aponta para o último commit
+com a feature completa (`33280ad`). Lá está toda a implementação: `AssinaturaService`,
+`AssinaturaController`, `StripeWebhookController`, `ExigirAssinaturaAttribute`, os enums
+`StatusAssinatura`/`TipoPlano` e a migration `AddAssinaturas`.
 
-### Gotchas do Stripe.net (SDK 52.1.1) verificados na fonte oficial
+### Estado do banco de produção
 
-A API do Stripe reestruturou vários campos nas versões recentes ("Basil"); a doc/treino pode estar
-desatualizada. Confirmado direto no código-fonte do `stripe-dotnet` (GitHub) antes de escrever:
+A migration `20260719170623_AddAssinaturas` **continua aplicada** no banco — só o código foi
+revertido. As colunas de assinatura seguem em `Usuarios` e `Familias`, ignoradas pelo EF.
 
-- `Invoice` **não tem** campo `Subscription`/`SubscriptionId` direto na raiz. É
-  `Invoice.Parent.SubscriptionDetails.SubscriptionId` (string, sempre disponível) — existe também
-  `.Subscription` (objeto, só populado se expandido explicitamente, evitar).
-- `Subscription` **não tem** `CurrentPeriodEnd` na raiz — moveu pra
-  `Subscription.Items.Data[0].CurrentPeriodEnd` (por item, suporta preços com intervalos diferentes no
-  mesmo Subscription).
-- `Checkout.Session.SubscriptionId` continua um campo direto (não foi restruturado) — confirmado que
-  fica populado no evento `checkout.session.completed`.
-- `EventUtility.ConstructEvent(..., throwOnApiVersionMismatch: false)` — passado explicitamente como
-  `false`. O SDK trava numa versão fixa da API (lib fortemente tipada), mas a versão configurada na
-  conta Stripe (Dashboard) não é sincronizada automaticamente com isso. Sem esse `false`, um mismatch
-  de versão rejeitaria webhooks legítimos com erro de assinatura, mesmo a assinatura HMAC estando
-  correta.
+Isso é seguro e foi verificado antes do revert: toda coluna adicionada é `nullable: true` ou
+`NOT NULL` **com `defaultValue`**, então inserts do código atual usam os defaults do banco. Também
+não houve necessidade de migration de reversão, e nenhum dado foi apagado.
 
-### Testes
+Se a feature voltar, a migration vai aparecer como pendente de novo — o `__EFMigrationsHistory`
+ainda tem o registro dela, então será preciso conferir antes de deixar o `Database.Migrate()` rodar.
 
-`ControleFamiliarAPI.Tests/Infrastructure/AuthTestHelper.cs` — `RegistrarNovaFamiliaAsync` marca a
-assinatura Individual do usuário recém-criado como `Ativa` direto no banco (via `CustomWebApplicationFactory`),
-porque toda conta nova nasce sem assinatura e isso quebraria qualquer teste de integração que bata em
-rotas financeiras. `AssinaturaPaywallTests.cs` cobre especificamente o 402 sem assinatura e a rejeição
-do 6º membro da família.
+## Deploy e release
 
-### Pendências pós-deploy (fora do código, ver memória "Stripe go-live checklist")
+`.github/workflows/deploy-monsterasp.yml` roda em push na `main`: build → test → publish → injeta
+secrets no `appsettings.Production.json` via `jq` → `app_offline.htm` por FTP → `FTP-Deploy-Action` →
+volta online. Um job `release` com `needs: build_and_deploy` cria a tag e a Release só depois de o
+deploy passar (patch incrementado a partir da maior tag `vN.N.N`).
 
-1. Criar os Products/Prices em modo **live** no Stripe (hoje só existem em teste) e trocar os 4 secrets
-   do GitHub Actions (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_INDIVIDUAL_ID`,
-   `STRIPE_PRICE_FAMILIA_ID`) pelos valores live.
-2. Configurar o endpoint de webhook no Dashboard (`Developers > Webhooks`) apontando pra
-   `https://fiscalhub.runasp.net/api/webhooks/stripe` e copiar o Signing Secret live.
-3. Habilitar o Customer Portal em `Settings > Billing > Customer Portal` (senão
-   `POST /assinatura/portal` falha).
+As migrations **não** rodam no CI: o MSSQL free do MonsterASP.NET só aceita "Local access", que um
+runner do GitHub não alcança. A aplicação aplica sozinha ao subir (`Database.Migrate()` no
+`Program.cs`).
+
+Secrets necessários: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`, `DB_CONNECTION_STRING`, `JWT_KEY`,
+`WEB_ORIGIN`, `SCALAR_USERNAME`, `SCALAR_PASSWORD`, e os `SMTP_*` (opcionais — sem eles o convite por
+e-mail fica desativado e o código de convite continua funcionando).
+
+## Testes
+
+`dotnet test` — 31 testes, integração com SQLite em memória via `CustomWebApplicationFactory`.
+Cobrem autenticação, isolamento por família, health check e as regras de negócio das transações.

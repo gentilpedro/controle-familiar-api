@@ -17,7 +17,7 @@ public class PessoasTests : IntegrationTestBase
     [Fact]
     public async Task Patch_EnviandoSoNome_AtualizaSoNomeENaoRejeitaComoInvalido()
     {
-        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Factory, Client);
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
         Client.ComToken(auth.Token);
 
         var criarResponse = await Client.PostAsJsonAsync("/api/pessoas", new PessoaCreateDto { Nome = "Ana", Idade = 10 }, AuthTestHelper.JsonOptions);

@@ -20,7 +20,6 @@ Foco do projeto:
 * Entity Framework Core
 * SQL Server
 * ASP.NET Core Identity + JWT
-* Stripe (assinatura mensal — Checkout e Customer Portal hospedados)
 * Scalar (OpenAPI UI moderna)
 * xUnit (testes unitários e de integração)
 * Docker (SQL Server local para desenvolvimento)
@@ -181,7 +180,6 @@ ControleFamiliarAPI/          # o projeto da API
   Models/
   Data/
   Exceptions/
-  Filters/                    # ExigirAssinaturaAttribute (paywall 402)
   Middlewares/
   Migrations/
 ControleFamiliarAPI.Tests/    # testes unitários e de integração (xUnit)
@@ -195,7 +193,7 @@ ControleFamiliarAPI.Tests/    # testes unitários e de integração (xUnit)
 dotnet test
 ```
 
-Os testes de integração sobem a API em memória com SQLite, sem depender do SQL Server do Docker — dá para rodar sem nada provisionado. Eles cobrem autenticação, isolamento de dados entre famílias, o paywall de assinatura e as regras de negócio das transações.
+Os testes de integração sobem a API em memória com SQLite, sem depender do SQL Server do Docker — dá para rodar sem nada provisionado. Eles cobrem autenticação, isolamento de dados entre famílias, o health check e as regras de negócio das transações.
 
 O CI roda `dotnet test` **antes** de publicar: se algum teste falhar, o deploy não acontece e nenhuma release é criada.
 
@@ -324,10 +322,6 @@ Diferente de projetos com banco externo (ex.: Postgres em outro provedor), o MSS
 | `SMTP_USERNAME` | *(opcional)* Usuário/login do SMTP |
 | `SMTP_PASSWORD` | *(opcional)* Senha do SMTP |
 | `SMTP_FROM` | *(opcional)* E-mail remetente dos convites |
-| `STRIPE_SECRET_KEY` | Dashboard Stripe → Developers → API keys → Secret key (`sk_live_...` em produção) |
-| `STRIPE_WEBHOOK_SECRET` | Dashboard Stripe → Webhooks → endpoint de produção → Signing secret (`whsec_...`) |
-| `STRIPE_PRICE_INDIVIDUAL_ID` | Dashboard Stripe → Product catalog → preço do plano Individual (`price_...`) |
-| `STRIPE_PRICE_FAMILIA_ID` | Dashboard Stripe → Product catalog → preço do plano Família (`price_...`) |
 
 ### Como a configuração chega no servidor
 
@@ -367,7 +361,7 @@ As notas são agrupadas em categorias conforme o `.github/release.yml`: **🚀 N
 
 ⚠️ O agrupamento usa a **label do Pull Request**, não o título nem o commit. Um PR sem label cai em "Outras mudanças" — é para isso que serve a categoria coringa `"*"` no fim do arquivo; sem ela, PRs sem label seriam *omitidos* das notas. Para que o changelog saia realmente organizado, é preciso rotular os PRs ao abri-los.
 
-Nenhum binário é anexado, de propósito: o pacote publicado contém o `appsettings.Production.json` já preenchido com os segredos reais (connection string, `Jwt:Key`, chave do Stripe, senha do SMTP), e anexá-lo a uma release de um repositório público vazaria todos eles.
+Nenhum binário é anexado, de propósito: o pacote publicado contém o `appsettings.Production.json` já preenchido com os segredos reais (connection string, `Jwt:Key`, senha do SMTP), e anexá-lo a uma release de um repositório público vazaria todos eles.
 
 ### Ordem das etapas
 

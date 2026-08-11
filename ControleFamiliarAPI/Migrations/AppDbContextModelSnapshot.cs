@@ -56,9 +56,6 @@ namespace ControleFamiliarAPI.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime?>("AssinaturaFamiliaValidaAte")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("CodigoConvite")
                         .IsRequired()
                         .HasMaxLength(12)
@@ -71,17 +68,6 @@ namespace ControleFamiliarAPI.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("StatusAssinaturaFamilia")
-                        .HasColumnType("int");
-
-                    b.Property<string>("StripeCustomerId")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("StripeSubscriptionIdFamilia")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
 
                     b.HasKey("Id");
 
@@ -217,9 +203,6 @@ namespace ControleFamiliarAPI.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("AssinaturaIndividualValidaAte")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
@@ -267,20 +250,6 @@ namespace ControleFamiliarAPI.Migrations
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("StatusAssinaturaIndividual")
-                        .HasColumnType("int");
-
-                    b.Property<string>("StripeCustomerId")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("StripeSubscriptionIdIndividual")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<bool>("TrialIndividualUsado")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
