@@ -1,0 +1,37 @@
+# Configura as notas geradas automaticamente pelas Releases (o `--generate-notes`
+# usado pelo job de release em .github/workflows/deploy-monsterasp.yml).
+#
+# O agrupamento e feito pela LABEL do Pull Request — nao pelo titulo, nem pela
+# mensagem de commit, nem pelo nome da branch. Um PR sem label nenhuma cai em
+# "Outras mudancas" por causa da categoria coringa "*" no fim: sem ela, PRs sem
+# label seriam OMITIDOS das notas em vez de aparecerem no final da lista.
+#
+# As labels usadas aqui ja existem nos dois repositorios (sao as padrao do
+# GitHub), entao isto funciona sem nenhuma configuracao extra. Para criar
+# categorias novas (ex.: "seguranca", "lgpd", "stripe"), crie a label em
+# Issues > Labels e adicione o bloco correspondente abaixo, sempre mantendo a
+# categoria "*" por ultimo.
+changelog:
+  exclude:
+    # Crie esta label se quiser esconder um PR das notas (ex.: ajuste interno de
+    # CI que nao interessa a quem le o changelog).
+    labels:
+      - ignore-for-release
+
+  categories:
+    - title: 🚀 Novidades
+      labels:
+        - enhancement
+
+    - title: 🐛 Correcoes
+      labels:
+        - bug
+
+    - title: 📖 Documentacao
+      labels:
+        - documentation
+
+    # Coringa: precisa ser a ultima. Recolhe tudo que nao casou acima.
+    - title: 📦 Outras mudancas
+      labels:
+        - "*"
