@@ -86,6 +86,25 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (!resultado.Succeeded)
                 throw new BusinessRuleException(string.Join(" ", resultado.Errors.Select(e => e.Description)));
 
+            // A Pessoa do titular nasce junto com a conta. Sem ela, quem acabou
+            // de se cadastrar cai num painel onde não dá para lançar nada: toda
+            // transação exige uma pessoa, e criar a primeira à mão era um passo
+            // que ninguém adivinhava. Vale para os dois modos — quem abre uma
+            // família e quem entra por convite aparece na lista na hora.
+            //
+            // Depois do CreateAsync porque só aqui o usuario.Id existe, e ainda
+            // dentro da transação: conta sem pessoa é o estado que se quer
+            // impossível.
+            _context.Pessoas.Add(new Pessoa
+            {
+                Nome = dto.Nome,
+                Idade = dto.Idade!.Value,
+                FamiliaId = familia.Id,
+                UsuarioId = usuario.Id
+            });
+
+            await _context.SaveChangesAsync(cancellationToken);
+
             await transacao.CommitAsync(cancellationToken);
 
             // Best-effort: e-mail de confirmação não é obrigatório pro cadastro

@@ -22,7 +22,11 @@ public class IsolamentoPorFamiliaTests : IntegrationTestBase
 
         var listaB = await clienteB.GetFromJsonAsync<List<PessoaResponseDto>>("/api/pessoas", AuthTestHelper.JsonOptions);
 
-        Assert.Empty(listaB!);
+        // B não vê lista vazia: toda conta nasce com a pessoa do próprio
+        // titular. O que o isolamento garante é que nada da família A apareça.
+        Assert.DoesNotContain(listaB!, p => p.Nome == "Pessoa da Família A");
+        Assert.Single(listaB!);
+        Assert.True(listaB![0].EhMembro);
     }
 
     [Fact]

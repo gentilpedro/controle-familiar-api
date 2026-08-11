@@ -26,7 +26,8 @@ namespace ControleFamiliarAPI.Services.Implementations
                 {
                     Id = p.Id,
                     Nome = p.Nome,
-                    Idade = p.Idade
+                    Idade = p.Idade,
+                    EhMembro = p.UsuarioId != null
                 })
                 .ToListAsync(cancellationToken);
         }
@@ -44,11 +45,14 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             await _context.SaveChangesAsync(cancellationToken);
 
+            // Pessoa criada aqui é sempre cadastro à mão — dependente sem
+            // login. A de um membro nasce no Registrar, junto com a conta.
             return new PessoaResponseDto
             {
                 Id = pessoa.Id,
                 Nome = pessoa.Nome,
-                Idade = pessoa.Idade
+                Idade = pessoa.Idade,
+                EhMembro = false
             };
         }
 
@@ -76,6 +80,13 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             if (pessoa == null)
                 throw new NotFoundException("Pessoa não encontrada.");
+
+            // Excluir por aqui deixaria um membro ativo da família sem pessoa
+            // nenhuma para lançar despesa. Quem representa uma conta só sai
+            // junto com ela — removendo o membro ou excluindo a própria conta.
+            if (pessoa.UsuarioId != null)
+                throw new BusinessRuleException(
+                    "Esta pessoa representa um membro da família. Remova o membro em Minha Família.");
 
             _context.Pessoas.Remove(pessoa);
 

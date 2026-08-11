@@ -30,6 +30,17 @@ namespace ControleFamiliarAPI.Models
         public Familia? Familia { get; set; }
 
         /// <summary>
+        /// Conta que esta pessoa representa, quando ela é um membro da família.
+        ///
+        /// Nulo para pessoa cadastrada à mão — dependente sem login, que é
+        /// justamente quem a regra de "menor de 18 não lança receita" atende.
+        /// Cada conta tem no máximo uma Pessoa, garantido por índice único
+        /// filtrado (ver AppDbContext).
+        /// </summary>
+        public int? UsuarioId { get; set; }
+        public Usuario? Usuario { get; set; }
+
+        /// <summary>
         /// Lista de transações vinculadas à pessoa.
         /// </summary>
         public List<Transacao> Transacoes { get; set; } = new();

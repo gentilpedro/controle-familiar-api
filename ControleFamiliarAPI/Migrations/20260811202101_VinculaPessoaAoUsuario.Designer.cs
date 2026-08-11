@@ -4,6 +4,7 @@ using ControleFamiliarAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ControleFamiliarAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260811202101_VinculaPessoaAoUsuario")]
+    partial class VinculaPessoaAoUsuario
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -35,7 +38,7 @@ namespace ControleFamiliarAPI.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<int?>("FamiliaId")
+                    b.Property<int>("FamiliaId")
                         .HasColumnType("int");
 
                     b.Property<int>("Finalidade")
@@ -418,7 +421,8 @@ namespace ControleFamiliarAPI.Migrations
                     b.HasOne("ControleFamiliarAPI.Models.Familia", "Familia")
                         .WithMany()
                         .HasForeignKey("FamiliaId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Familia");
                 });

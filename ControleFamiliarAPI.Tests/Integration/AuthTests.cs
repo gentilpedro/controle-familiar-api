@@ -115,6 +115,28 @@ public class AuthTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    /// <summary>
+    /// Idade é nullable justamente para isto: em int não-nulo, omitir o campo
+    /// cairia em 0 silenciosamente e criaria a Pessoa do titular como recém-
+    /// nascida, que a regra dos 18 anos proibiria de lançar receita.
+    /// </summary>
+    [Fact]
+    public async Task Registrar_SemIdade_Retorna400()
+    {
+        var dto = new RegistrarDto
+        {
+            Nome = "Usuário Teste",
+            Email = $"{Guid.NewGuid():N}@teste.com",
+            Senha = "Senha123",
+            ModoFamilia = "Nova",
+            NomeFamilia = "Família Teste"
+        };
+
+        var response = await Client.PostAsJsonAsync("/api/auth/registrar", dto, AuthTestHelper.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task Logout_RevogaToken_UsoPosteriorRetorna401()
     {
