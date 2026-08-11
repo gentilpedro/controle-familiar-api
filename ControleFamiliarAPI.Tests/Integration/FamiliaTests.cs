@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using ControleFamiliarAPI.Data;
 using ControleFamiliarAPI.DTOs.Auth;
+using ControleFamiliarAPI.Models.Enums;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -52,7 +53,7 @@ public class FamiliaTests : IntegrationTestBase
             Nome = "Membro Comum",
             Email = $"{Guid.NewGuid():N}@teste.com",
             Senha = "Senha123",
-            ModoFamilia = "Entrar",
+            ModoFamilia = ModoEntradaFamilia.Entrar,
             CodigoConvite = admin.Familia.CodigoConvite
         };
         var membroResponse = await Client.PostAsJsonAsync("/api/auth/registrar", membroDto, AuthTestHelper.JsonOptions);

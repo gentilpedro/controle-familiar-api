@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using ControleFamiliarAPI.OpenApi;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -158,18 +159,17 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddOpenApi(options =>
 {
-    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-
     options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
         document.Info.Description = "API Controle Familiar com documentação detalhada";
         return Task.CompletedTask;
     });
+
+    // Publica no schema o que está escrito nos /// <summary> do código.
+    options.AddSchemaTransformer<ComentariosXmlSchemaTransformer>();
 });
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
 
 var app = builder.Build();
 

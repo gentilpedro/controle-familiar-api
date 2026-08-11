@@ -249,9 +249,11 @@ Authorization: Bearer <token>
 
 {
   "descricao": "Salário",
-  "finalidade": "Receita"
+  "finalidade": 1
 }
 ```
+
+`finalidade`: `1` = Receita, `2` = Despesa, `3` = Ambas.
 
 ## Criar transação
 
@@ -262,11 +264,15 @@ Authorization: Bearer <token>
 {
   "descricao": "Pagamento",
   "valor": 1500,
-  "tipo": "Receita",
+  "tipo": 1,
   "pessoaId": 1,
   "categoriaId": 1
 }
 ```
+
+`tipo`: `1` = Receita, `2` = Despesa.
+
+> ⚠️ `tipo` e `finalidade` trafegam como **número**, enquanto `modoFamilia` trafega como **string**. A diferença é proposital: só o `modoFamilia` tem `JsonStringEnumConverter` aplicado. Ligar o conversor globalmente mudaria o contrato dos outros dois e quebraria o frontend, que envia `tipo: 1`.
 
 ---
 

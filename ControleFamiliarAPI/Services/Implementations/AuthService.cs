@@ -7,6 +7,7 @@ using ControleFamiliarAPI.Services;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleFamiliarAPI.Data;
 using ControleFamiliarAPI.Models;
+using ControleFamiliarAPI.Models.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -53,16 +54,11 @@ namespace ControleFamiliarAPI.Services.Implementations
 
         public async Task<AuthResponseDto> Registrar(RegistrarDto dto, CancellationToken cancellationToken = default)
         {
-            // ModoFamilia só aceita exatamente "Nova"/"Entrar" (case-insensitive);
-            // qualquer outro valor (typo, string vazia) é rejeitado explicitamente
-            // em vez de cair silenciosamente no branch "Nova".
-            bool criandoFamiliaNova;
-            if (string.Equals(dto.ModoFamilia, "Nova", StringComparison.OrdinalIgnoreCase))
-                criandoFamiliaNova = true;
-            else if (string.Equals(dto.ModoFamilia, "Entrar", StringComparison.OrdinalIgnoreCase))
-                criandoFamiliaNova = false;
-            else
-                throw new BusinessRuleException("ModoFamilia deve ser \"Nova\" ou \"Entrar\".");
+            // O tipo do campo já garante que só "Nova"/"Entrar" chegam aqui: um
+            // valor fora disso é rejeitado na desserialização, e a ausência do
+            // campo cai no [Required] do DTO. Ambos viram 400 antes deste ponto,
+            // então não há mais um branch de erro para tratar.
+            var criandoFamiliaNova = dto.ModoFamilia == ModoEntradaFamilia.Nova;
 
             // Criar a Familia (via _context) e criar o Usuario (via UserManager,
             // que usa o mesmo AppDbContext) são duas SaveChanges separadas. Sem

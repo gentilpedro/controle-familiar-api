@@ -15,6 +15,9 @@ namespace ControleFamiliarAPI.Tests.Infrastructure;
 /// </summary>
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
+    public const string UsuarioDocs = "docs-teste";
+    public const string SenhaDocs = "senha-docs-teste";
+
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
 
     public CustomWebApplicationFactory()
@@ -33,6 +36,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Jwt__Issuer", "ControleFamiliarAPI.Tests");
         Environment.SetEnvironmentVariable("Jwt__Audience", "ControleFamiliarWeb.Tests");
         Environment.SetEnvironmentVariable("Jwt__ExpiraHoras", "12");
+
+        // Fora de Development, /openapi e /scalar exigem Basic Auth. Sem estes
+        // valores o documento OpenAPI responderia 401 e não daria para testá-lo.
+        Environment.SetEnvironmentVariable("Scalar__Username", UsuarioDocs);
+        Environment.SetEnvironmentVariable("Scalar__Password", SenhaDocs);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
