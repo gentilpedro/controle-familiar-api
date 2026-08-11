@@ -149,7 +149,6 @@ builder.Services.AddScoped<IPessoaService, PessoaService>();
 builder.Services.AddScoped<ICategoriaService, CategoriaService>();
 builder.Services.AddScoped<ITransacaoService, TransacaoService>();
 builder.Services.AddScoped<IRelatorioService, RelatorioService>();
-builder.Services.AddScoped<IAssinaturaService, AssinaturaService>();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:5173" };
