@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using ControleFamiliarAPI.Data;
 using ControleFamiliarAPI.DTOs.Auth;
 using ControleFamiliarAPI.DTOs.Categoria;
+using ControleFamiliarAPI.Models.Enums;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Tests.Infrastructure;
 
@@ -69,7 +70,7 @@ public class CategoriasPadraoTests : IntegrationTestBase
             Nome = "Convidado",
             Email = $"{Guid.NewGuid():N}@teste.com",
             Senha = "Senha123",
-            ModoFamilia = "Entrar",
+            ModoFamilia = ModoEntradaFamilia.Entrar,
             CodigoConvite = dono.Familia.CodigoConvite
         };
 
