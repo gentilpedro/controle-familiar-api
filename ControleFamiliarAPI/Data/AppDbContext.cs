@@ -69,6 +69,23 @@ namespace ControleFamiliarAPI.Data
                       .WithMany()
                       .HasForeignKey(p => p.FamiliaId)
                       .OnDelete(DeleteBehavior.Restrict);
+
+                // SetNull e não Cascade: quando a conta some, as transações da
+                // pessoa continuam valendo para a família. Ela só deixa de
+                // representar um membro e passa a ser pessoa comum — apagar em
+                // cascata levaria junto o histórico dos outros.
+                entity.HasOne(p => p.Usuario)
+                      .WithOne()
+                      .HasForeignKey<Pessoa>(p => p.UsuarioId)
+                      .OnDelete(DeleteBehavior.SetNull);
+
+                // Uma conta tem no máximo uma Pessoa. O índice precisa ser
+                // filtrado: UsuarioId é nulo em toda pessoa cadastrada à mão, e
+                // no SQL Server nulos colidem entre si num índice único —
+                // sem o filtro, a família só poderia ter um dependente.
+                entity.HasIndex(p => p.UsuarioId)
+                      .IsUnique()
+                      .HasFilter("[UsuarioId] IS NOT NULL");
             });
 
             // Configuração da entidade Categoria

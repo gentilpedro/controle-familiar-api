@@ -75,6 +75,38 @@ namespace ControleFamiliarAPI.Services.Implementations
             membro.EhAdministrador = true;
             await _userManager.UpdateAsync(membro);
 
+            // A Pessoa do removido fica na família antiga, onde estão as
+            // transações dela — levar junto arrancaria histórico que é dos
+            // outros membros. Ela só perde o vínculo com a conta e vira pessoa
+            // comum, do mesmo tipo de quem nunca teve login.
+            var pessoaAntiga = await _context.Pessoas
+                .FirstOrDefaultAsync(p => p.UsuarioId == usuarioId, cancellationToken);
+
+            if (pessoaAntiga != null)
+            {
+                pessoaAntiga.UsuarioId = null;
+
+                // SaveChanges próprio: o índice único de UsuarioId é filtrado,
+                // então soltar o vínculo antigo tem que estar gravado antes de
+                // o novo reivindicar o mesmo usuário.
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
+            // Na família nova ele precisa de uma pessoa, senão cai num painel
+            // sem ninguém para lançar despesa — o mesmo buraco que o Registrar
+            // fecha no cadastro. Idade vem da pessoa antiga; conta anterior à
+            // vinculação não tem pessoa, e aí 18 evita bloquear receita de um
+            // adulto por dado que a API nunca chegou a perguntar.
+            _context.Pessoas.Add(new Pessoa
+            {
+                Nome = membro.Nome,
+                Idade = pessoaAntiga?.Idade ?? 18,
+                FamiliaId = novaFamilia.Id,
+                UsuarioId = membro.Id
+            });
+
+            await _context.SaveChangesAsync(cancellationToken);
+
             await _auditoria.Registrar("RemocaoMembro", usuarioId, cancellationToken);
 
             await transacao.CommitAsync(cancellationToken);

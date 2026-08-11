@@ -18,13 +18,15 @@ public static class AuthTestHelper
         HttpClient client,
         string? nome = null,
         string? email = null,
-        string senha = "Senha123")
+        string senha = "Senha123",
+        int idade = 30)
     {
         var dto = new RegistrarDto
         {
             Nome = nome ?? "Usuário Teste",
             Email = email ?? $"{Guid.NewGuid():N}@teste.com",
             Senha = senha,
+            Idade = idade,
             ModoFamilia = "Nova",
             NomeFamilia = "Família Teste"
         };

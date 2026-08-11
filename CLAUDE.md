@@ -45,6 +45,34 @@ não houve necessidade de migration de reversão, e nenhum dado foi apagado.
 Se a feature voltar, a migration vai aparecer como pendente de novo — o `__EFMigrationsHistory`
 ainda tem o registro dela, então será preciso conferir antes de deixar o `Database.Migrate()` rodar.
 
+## Pessoa e Usuario: dois conceitos que se cruzam
+
+`Pessoa` é a quem uma transação se atribui. `Usuario` é quem faz login. **Não são a mesma coisa, e
+essa é a razão de o CRUD manual de pessoas continuar existindo**: filho pequeno e dependente não têm
+conta, e são exatamente quem a regra de "menor de 18 não lança receita" (`TransacaoService`) atende.
+
+Desde 2026-08, `Pessoa.UsuarioId` (nullable) liga uma pessoa à conta que ela representa:
+
+- **`AuthService.Registrar` cria a Pessoa do titular**, dentro da mesma transação que cria a conta —
+  nos dois modos, "Nova" e "Entrar". Sem isso, quem se cadastrava caía num painel onde não dava para
+  lançar nada, já que toda transação exige uma pessoa. Por isso `RegistrarDto` passou a exigir
+  `Idade` (nullable de propósito: em `int` não-nulo, omitir cairia em 0 silenciosamente).
+- `UsuarioId` nulo = pessoa cadastrada à mão. `PessoaResponseDto.EhMembro` é o que o front usa para
+  marcar quem é membro e não oferecer exclusão.
+- **`PessoaService.Deletar` recusa pessoa vinculada** — excluí-la deixaria um membro ativo sem
+  ninguém para lançar despesa. Ela só sai junto com a conta.
+- A FK é **`SetNull`, não `Cascade`**: quando a conta some, as transações continuam valendo para a
+  família e a pessoa só vira cadastro comum. Cascade levaria junto histórico que é dos outros.
+- `FamiliaService.RemoverMembro` solta o vínculo da pessoa antiga (que fica na família de origem, com
+  as transações dela) e cria uma pessoa nova na família individual do removido. São dois
+  `SaveChanges` de propósito: o índice único de `UsuarioId` é filtrado, então o vínculo antigo tem
+  que estar solto antes de o novo reivindicar o mesmo usuário.
+
+⚠️ **A migration não faz backfill.** Conta criada antes disso continua sem `Pessoa` vinculada — o que
+está certo, porque essas famílias já cadastraram as pessoas delas à mão e um backfill duplicaria. O
+efeito prático é que `EhMembro` vem `false` para todo mundo que já existia, e a proteção contra
+exclusão só passa a valer para conta nova.
+
 ## Deploy e release
 
 `.github/workflows/deploy-monsterasp.yml` roda em push na `main`: build → test → publish → injeta
