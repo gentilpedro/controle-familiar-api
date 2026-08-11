@@ -350,6 +350,12 @@ namespace ControleFamiliarAPI.Services.Implementations
             _context.Familias.Add(familia);
             await _context.SaveChangesAsync(cancellationToken);
 
+            // Depois do SaveChanges: as categorias precisam do Id da família,
+            // que só existe após a inserção. Roda dentro da mesma transação
+            // aberta em Registrar, então ou nascem as duas coisas ou nenhuma.
+            _context.Categorias.AddRange(CategoriasPadrao.ParaFamilia(familia.Id));
+            await _context.SaveChangesAsync(cancellationToken);
+
             return familia;
         }
 
