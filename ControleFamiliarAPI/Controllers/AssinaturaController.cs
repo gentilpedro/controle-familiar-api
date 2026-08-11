@@ -53,20 +53,5 @@ namespace ControleFamiliarAPI.Controllers
             var resultado = await _service.ObterStatus(cancellationToken);
             return Ok(new ApiResponse<AssinaturaStatusDto>(resultado));
         }
-
-        [HttpPost("portal")]
-        [Tags("Assinatura")]
-        [EndpointSummary("Cria uma sessão do Customer Portal do Stripe")]
-        [EndpointDescription("""
-            Cria uma sessão do Customer Portal hospedado pelo Stripe, onde o
-            usuário pode trocar forma de pagamento, ver faturas e cancelar a
-            assinatura. Devolve a URL para redirecionar o usuário.
-            """)]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult> CriarPortal(CancellationToken cancellationToken)
-        {
-            var resultado = await _service.CriarPortalSession(cancellationToken);
-            return Ok(new ApiResponse<PortalResponseDto>(resultado));
-        }
     }
 }
