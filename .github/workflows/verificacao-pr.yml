@@ -1,0 +1,55 @@
+name: Verificação de Pull Request
+
+# Roda build e testes em todo PR para a main, sem publicar nada.
+#
+# Existe por causa de uma quebra real: os PRs #33 e #34 passavam isolados, mas
+# não compilavam juntos — um trocou o tipo de um campo, o outro ainda usava o
+# tipo antigo. O git juntou sem conflito de texto (arquivos diferentes) e o
+# build só quebrou depois do merge, derrubando o deploy.
+#
+# O evento pull_request faz checkout do MERGE entre o PR e a main atual, não do
+# branch do PR isolado. É exatamente isso que pega esse tipo de conflito
+# semântico: aqui o #34 teria ficado vermelho antes de entrar.
+on:
+  pull_request:
+    branches: [main]
+
+# Push novo no PR cancela a verificação anterior — em PR, o que interessa é o
+# resultado do último commit. Diferente do deploy da main, onde uma execução em
+# andamento precisa terminar.
+concurrency:
+  group: verificacao-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+# Só leitura: este workflow não publica release, não faz deploy e não escreve
+# no repositório.
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: "9.0.x"
+  SOLUTION_PATH: ControleFamiliarAPI.sln
+
+jobs:
+  build_e_testes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+
+      # Os testes de integração sobem a API com SQLite em memória e não
+      # dependem de secret nenhum — por isso este workflow roda sem acesso a
+      # credenciais, inclusive em PR vindo de fork.
+      - name: Test
+        run: dotnet test ${{ env.SOLUTION_PATH }} --configuration Release --no-build
