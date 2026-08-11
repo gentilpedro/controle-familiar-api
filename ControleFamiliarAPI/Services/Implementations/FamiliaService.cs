@@ -71,12 +71,6 @@ namespace ControleFamiliarAPI.Services.Implementations
             _context.Familias.Add(novaFamilia);
             await _context.SaveChangesAsync(cancellationToken);
 
-            // Mesmo tratamento de quem cria a conta: a família nova nasce com as
-            // categorias padrão. Sem isto, quem é removido cairia num painel
-            // completamente vazio, diferente de qualquer outra família nova.
-            _context.Categorias.AddRange(CategoriasPadrao.ParaFamilia(novaFamilia.Id));
-            await _context.SaveChangesAsync(cancellationToken);
-
             membro.FamiliaId = novaFamilia.Id;
             membro.EhAdministrador = true;
             await _userManager.UpdateAsync(membro);

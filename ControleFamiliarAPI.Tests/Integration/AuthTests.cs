@@ -207,12 +207,12 @@ public class AuthTests : IntegrationTestBase
         Assert.Single(dados.Pessoas);
         Assert.Equal("Filho", dados.Pessoas[0].Nome);
 
-        // A família já nasce com as categorias padrão, então a exportação traz
-        // elas mais a "Mesada" criada acima — o que importa aqui é que a
-        // categoria do usuário aparece, não que ela seja a única.
-        var mesada = Assert.Single(dados.Categorias, c => c.Descricao == "Mesada");
+        // A exportação traz só o que é dado do usuário: as categorias criadas
+        // pela família. O catálogo do sistema fica de fora de propósito — ele
+        // não pertence a ninguém e não é dado pessoal a portar (LGPD art. 18, V).
+        var mesada = Assert.Single(dados.Categorias);
+        Assert.Equal("Mesada", mesada.Descricao);
         Assert.Equal("Despesa", mesada.Finalidade);
-        Assert.Equal(CategoriasPadrao.Itens.Count + 1, dados.Categorias.Count);
     }
 
     [Fact]

@@ -62,6 +62,13 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.EnsureCreatedAsync();
+
+        // Em produção o catálogo do sistema entra pela migration
+        // SeedCategoriasDoSistema. Aqui o schema vem de EnsureCreated a partir
+        // do modelo, sem passar por migration nenhuma — então ele precisa ser
+        // inserido na mão, ou os testes rodariam contra um catálogo vazio.
+        db.Categorias.AddRange(CategoriasPadrao.DoSistema());
+        await db.SaveChangesAsync();
     }
 
     protected override void Dispose(bool disposing)
