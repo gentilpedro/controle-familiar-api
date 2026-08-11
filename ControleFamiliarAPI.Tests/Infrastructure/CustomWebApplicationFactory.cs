@@ -33,15 +33,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("Jwt__Issuer", "ControleFamiliarAPI.Tests");
         Environment.SetEnvironmentVariable("Jwt__Audience", "ControleFamiliarWeb.Tests");
         Environment.SetEnvironmentVariable("Jwt__ExpiraHoras", "12");
-
-        // Idem para o Stripe: só satisfaz a checagem de startup em
-        // Program.cs. Nenhum teste chama a API real do Stripe até agora -
-        // se algum passar a chamar, vai precisar de uma chave de teste de
-        // verdade ou de um fake no lugar do client do Stripe.
-        Environment.SetEnvironmentVariable("Stripe__SecretKey", "sk_test_chave-de-teste-somente-para-os-testes-automatizados");
-        Environment.SetEnvironmentVariable("Stripe__WebhookSecret", "whsec_chave-de-teste-somente-para-os-testes-automatizados");
-        Environment.SetEnvironmentVariable("Stripe__PriceIndividualId", "price_teste_individual");
-        Environment.SetEnvironmentVariable("Stripe__PriceFamiliaId", "price_teste_familia");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

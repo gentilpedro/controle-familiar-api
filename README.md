@@ -324,10 +324,6 @@ Diferente de projetos com banco externo (ex.: Postgres em outro provedor), o MSS
 | `SMTP_USERNAME` | *(opcional)* Usuário/login do SMTP |
 | `SMTP_PASSWORD` | *(opcional)* Senha do SMTP |
 | `SMTP_FROM` | *(opcional)* E-mail remetente dos convites |
-| `STRIPE_SECRET_KEY` | Dashboard Stripe → Developers → API keys → Secret key (`sk_live_...` em produção) |
-| `STRIPE_WEBHOOK_SECRET` | Dashboard Stripe → Webhooks → endpoint de produção → Signing secret (`whsec_...`) |
-| `STRIPE_PRICE_INDIVIDUAL_ID` | Dashboard Stripe → Product catalog → preço do plano Individual (`price_...`) |
-| `STRIPE_PRICE_FAMILIA_ID` | Dashboard Stripe → Product catalog → preço do plano Família (`price_...`) |
 
 ### Como a configuração chega no servidor
 
