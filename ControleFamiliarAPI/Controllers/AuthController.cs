@@ -1,4 +1,5 @@
 using ControleFamiliarAPI.DTOs.Auth;
+using ControleFamiliarAPI.Services;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -40,6 +41,7 @@ namespace ControleFamiliarAPI.Controllers
         public async Task<ActionResult> Registrar(RegistrarDto dto, CancellationToken cancellationToken)
         {
             var resultado = await _service.Registrar(dto, cancellationToken);
+            CookieDeSessao.Gravar(Response, resultado.Token, resultado.ExpiraEm);
             return Ok(new ApiResponse<AuthResponseDto>(resultado));
         }
 
@@ -53,6 +55,14 @@ namespace ControleFamiliarAPI.Controllers
         public async Task<ActionResult> Login(LoginDto dto, CancellationToken cancellationToken)
         {
             var resultado = await _service.Login(dto, cancellationToken);
+
+            // A sessão do navegador passa a viver neste cookie HttpOnly. O token
+            // continua no corpo da resposta de propósito: é o que permite usar a
+            // API pelo Scalar, curl ou Postman. Isso não enfraquece a proteção
+            // contra XSS — o que o XSS quer é roubar uma sessão já existente, e
+            // essa agora está fora do alcance do JavaScript.
+            CookieDeSessao.Gravar(Response, resultado.Token, resultado.ExpiraEm);
+
             return Ok(new ApiResponse<AuthResponseDto>(resultado));
         }
 
@@ -143,7 +153,12 @@ namespace ControleFamiliarAPI.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult> Logout(CancellationToken cancellationToken)
         {
+            // Revoga o token no servidor (TokensRevogados) E apaga o cookie. Só
+            // apagar o cookie não bastaria: uma cópia do token continuaria
+            // válida até expirar.
             await _service.Logout(cancellationToken);
+            CookieDeSessao.Limpar(Response);
+
             return Ok(new ApiResponse<string>("Sessão encerrada."));
         }
 

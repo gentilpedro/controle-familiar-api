@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.RateLimiting;
 using ControleFamiliarAPI.Middlewares;
+using ControleFamiliarAPI.Services;
 using ControleFamiliarAPI.Services.Implementations;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleFamiliarAPI.Data;
@@ -84,6 +85,29 @@ builder.Services
         // rejeitado mesmo antes de vencer naturalmente.
         options.Events = new JwtBearerEvents
         {
+            // O navegador manda a sessão no cookie HttpOnly, não no header
+            // Authorization — o JavaScript nem enxerga o token para montar o
+            // header. Este evento roda antes da validação e alimenta o handler
+            // a partir do cookie.
+            //
+            // Authorization tem precedência sobre o cookie, e a checagem
+            // precisa ser no header em si: este evento roda ANTES de o handler
+            // ler o Authorization, então context.Token está sempre vazio aqui e
+            // testá-lo não distinguiria nada — o cookie acabaria sobrescrevendo
+            // o Bearer. Um cliente pode legitimamente ter os dois (ex.: usar
+            // Bearer numa sessão de navegador que já tem cookie), e nesse caso
+            // vale o que ele mandou explicitamente.
+            OnMessageReceived = context =>
+            {
+                if (!context.Request.Headers.ContainsKey("Authorization")
+                    && context.Request.Cookies.TryGetValue(CookieDeSessao.Nome, out var tokenDoCookie))
+                {
+                    context.Token = tokenDoCookie;
+                }
+
+                return Task.CompletedTask;
+            },
+
             OnTokenValidated = async context =>
             {
                 var jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
@@ -135,7 +159,14 @@ builder.Services.AddCors(options =>
         {
             policy.WithOrigins(allowedOrigins)
                   .AllowAnyMethod()
-                  .AllowAnyHeader();
+                  .AllowAnyHeader()
+                  // Necessário para o navegador enviar o cookie de sessão numa
+                  // chamada cross-origin. Em produção o proxy da Vercel faz
+                  // tudo virar same-origin e o CORS nem entra em jogo; isto
+                  // cobre quem rode o frontend apontando direto para a API.
+                  // Só é válido com WithOrigins explícito — AllowAnyOrigin e
+                  // AllowCredentials juntos são proibidos pela spec.
+                  .AllowCredentials();
         });
 });
 
@@ -240,6 +271,12 @@ app.MapHealthChecks("/health");
 
 app.UseMiddleware<ErrorMiddleware>();
 app.UseCors("AllowReact");
+
+// Depois do CORS (para o preflight ser respondido normalmente) e antes da
+// autenticação: a checagem não depende de quem é o usuário, só de como a
+// requisição chegou.
+app.UseMiddleware<CsrfMiddleware>();
+
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
