@@ -2,7 +2,9 @@
 
 API desenvolvida em **.NET 9** para gerenciamento de controle financeiro, permitindo cadastro de pessoas, categorias, transações e geração de relatórios — de forma individual ou compartilhada entre várias pessoas de uma mesma família.
 
-Este projeto foi desenvolvido como **teste técnico**, com foco em:
+Em produção roda em **[fiscalhub.runasp.net](https://fiscalhub.runasp.net)**, hospedada no MonsterASP.NET. O frontend que a consome fica no repositório irmão [`controle-familiar-web`](https://github.com/gentilpedro/controle-familiar-web) (React + Vite, publicado na Vercel) — são dois repositórios separados, não um monorepo.
+
+Foco do projeto:
 
 * Organização de código
 * Regras de negócio
@@ -18,7 +20,9 @@ Este projeto foi desenvolvido como **teste técnico**, com foco em:
 * Entity Framework Core
 * SQL Server
 * ASP.NET Core Identity + JWT
+* Stripe (assinatura mensal — Checkout e Customer Portal hospedados)
 * Scalar (OpenAPI UI moderna)
+* xUnit (testes unitários e de integração)
 * Docker (SQL Server local para desenvolvimento)
 
 ---
@@ -170,14 +174,30 @@ Retorna:
 # 🧱 Estrutura do projeto
 
 ```bash
-Controllers/
-Services/
-DTO/
-Models/
-Data/
-Exceptions/
-Middlewares/
+ControleFamiliarAPI/          # o projeto da API
+  Controllers/
+  Services/
+  DTOs/
+  Models/
+  Data/
+  Exceptions/
+  Filters/                    # ExigirAssinaturaAttribute (paywall 402)
+  Middlewares/
+  Migrations/
+ControleFamiliarAPI.Tests/    # testes unitários e de integração (xUnit)
 ```
+
+---
+
+# 🧪 Testes
+
+```bash
+dotnet test
+```
+
+Os testes de integração sobem a API em memória com SQLite, sem depender do SQL Server do Docker — dá para rodar sem nada provisionado. Eles cobrem autenticação, isolamento de dados entre famílias, o paywall de assinatura e as regras de negócio das transações.
+
+O CI roda `dotnet test` **antes** de publicar: se algum teste falhar, o deploy não acontece e nenhuma release é criada.
 
 ---
 
@@ -276,6 +296,8 @@ O workflow `.github/workflows/deploy-monsterasp.yml` builda, publica e faz deplo
 
 Branches de feature e Pull Requests **não** disparam deploy. O job roda em `ubuntu-latest` — publicar para `win-x86`/IIS não exige que o runner seja Windows.
 
+Dois merges em sequência não rodam em paralelo: o workflow usa um grupo de `concurrency`, então o segundo fica na fila até o primeiro terminar. Sem isso, dois uploads por FTP simultâneos deixariam a `/wwwroot` num estado misturado.
+
 ### Migrations em produção
 
 Diferente de projetos com banco externo (ex.: Postgres em outro provedor), o MSSQL free do MonsterASP.NET só aceita **"Local access"**: conexão de dentro do próprio datacenter deles. Um runner do GitHub Actions nunca alcançaria esse banco, então não existe etapa de `dotnet ef database update` no workflow — a própria aplicação aplica as migrations pendentes sozinha ao subir (`Database.Migrate()` logo após `builder.Build()` no `Program.cs`).
@@ -319,6 +341,42 @@ Em desenvolvimento, `/scalar` e `/openapi` continuam livres. Em qualquer outro a
 
 ---
 
+# 🏷️ Versionamento e releases
+
+Cada deploy de produção bem-sucedido vira automaticamente uma **Release** no GitHub. Não há passo manual: ao mergear um PR na `main`, o mesmo workflow que faz o deploy cria a tag e a release no final.
+
+### Como a versão é calculada
+
+O job lê a maior tag existente no formato `vN.N.N` e incrementa o **patch**:
+
+```
+(nenhuma tag) → v1.0.0 → v1.0.1 → v1.0.2 → ...
+```
+
+Para saltar de minor ou major (ex.: uma mudança grande que merece ser `v1.1.0`), basta criar a tag manualmente no commit desejado — o próximo deploy continua a contagem a partir dela:
+
+```bash
+git tag v1.1.0 && git push origin v1.1.0
+```
+
+### O que a release contém
+
+Tag + notas geradas automaticamente a partir dos títulos dos PRs mergeados desde a release anterior — por isso vale manter os títulos de PR descritivos, já que viram o changelog.
+
+Nenhum binário é anexado, de propósito: o pacote publicado contém o `appsettings.Production.json` já preenchido com os segredos reais (connection string, `Jwt:Key`, chave do Stripe, senha do SMTP), e anexá-lo a uma release de um repositório público vazaria todos eles.
+
+### Ordem das etapas
+
+A release é um job separado, com `needs: build_and_deploy` — ela só roda depois que build, testes e upload por FTP terminaram com sucesso. Se qualquer etapa falhar, nenhuma versão é publicada, e toda tag no GitHub corresponde exatamente ao que está no ar.
+
+### Rollback
+
+Como a tag aponta para o commit que foi implantado, voltar para uma versão anterior é reimplantar aquela tag: *Actions* → **Run workflow** → escolher a tag (ex.: `v1.0.3`) em vez de `main`.
+
+Esse caminho reconstrói e reenvia o código daquela versão sem criar uma release nova — o job de release roda apenas em push na `main`, nunca em execução manual. Atenção: rollback de código não desfaz migrations de banco já aplicadas.
+
+---
+
 # ⭐ Diferenciais do projeto
 
 * Estrutura em camadas (Controller + Service)
@@ -327,7 +385,8 @@ Em desenvolvimento, `/scalar` e `/openapi` continuam livres. Em qualquer outro a
 * Segredos fora do código-fonte (User Secrets em dev, GitHub Secrets + appsettings.Production.json em produção)
 * Uso de DTOs
 * Documentação OpenAPI completa
-* CI/CD pronto para deploy no MonsterASP.NET
+* Testes automatizados rodando no CI antes de qualquer deploy
+* CI/CD pronto para deploy no MonsterASP.NET, com release versionada a cada publicação
 * Código limpo e organizado
 
 ---
