@@ -180,8 +180,13 @@ public class AuthTests : IntegrationTestBase
         Assert.Equal(auth.Familia.CodigoConvite, dados.Familia.CodigoConvite);
         Assert.Single(dados.Pessoas);
         Assert.Equal("Filho", dados.Pessoas[0].Nome);
-        Assert.Single(dados.Categorias);
-        Assert.Equal("Despesa", dados.Categorias[0].Finalidade);
+
+        // A família já nasce com as categorias padrão, então a exportação traz
+        // elas mais a "Mesada" criada acima — o que importa aqui é que a
+        // categoria do usuário aparece, não que ela seja a única.
+        var mesada = Assert.Single(dados.Categorias, c => c.Descricao == "Mesada");
+        Assert.Equal("Despesa", mesada.Finalidade);
+        Assert.Equal(CategoriasPadrao.Itens.Count + 1, dados.Categorias.Count);
     }
 
     [Fact]

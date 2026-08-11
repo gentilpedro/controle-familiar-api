@@ -140,6 +140,20 @@ Finalidades possíveis:
 * Despesa
 * Ambas
 
+### Categorias padrão
+
+Toda família nasce com um conjunto de categorias já cadastradas, para ninguém precisar criar "Água" e "Luz" na mão antes do primeiro lançamento:
+
+| Finalidade | Categorias |
+|---|---|
+| Receita | Salário, Renda extra |
+| Despesa | Moradia, Água, Luz, Gás, Internet e telefone, Mercado, Transporte, Saúde, Educação, Lazer |
+| Ambas | Outros |
+
+São categorias comuns da família, não do sistema: podem ser renomeadas ou excluídas, e nada obriga a usá-las. A lista canônica fica em `Data/CategoriasPadrao.cs`.
+
+Cada família recebe a **própria cópia** — não existe categoria global. O modelo inteiro é isolado por família (`Categoria.FamiliaId` é obrigatório); uma categoria compartilhada exigiria `FamiliaId` anulável, uma regra nova em todo filtro por família, e impediria o usuário de renomear "Mercado" para "Supermercado" sem afetar todo mundo.
+
 ## 💰 Transações
 
 * Criar transação
