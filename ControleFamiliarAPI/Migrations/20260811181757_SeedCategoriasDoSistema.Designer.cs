@@ -4,6 +4,7 @@ using ControleFamiliarAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ControleFamiliarAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260811181757_SeedCategoriasDoSistema")]
+    partial class SeedCategoriasDoSistema
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -96,16 +99,9 @@ namespace ControleFamiliarAPI.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<int?>("UsuarioId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("FamiliaId");
-
-                    b.HasIndex("UsuarioId")
-                        .IsUnique()
-                        .HasFilter("[UsuarioId] IS NOT NULL");
 
                     b.ToTable("Pessoas");
                 });
@@ -431,14 +427,7 @@ namespace ControleFamiliarAPI.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("ControleFamiliarAPI.Models.Usuario", "Usuario")
-                        .WithOne()
-                        .HasForeignKey("ControleFamiliarAPI.Models.Pessoa", "UsuarioId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("Familia");
-
-                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("ControleFamiliarAPI.Models.Transacao", b =>

@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ControleFamiliarAPI.DTOs.Auth;
+using ControleFamiliarAPI.Models.Enums;
 using ControleFamiliarAPI.Responses;
 
 namespace ControleFamiliarAPI.Tests.Infrastructure;
@@ -26,8 +27,7 @@ public static class AuthTestHelper
             Nome = nome ?? "Usuário Teste",
             Email = email ?? $"{Guid.NewGuid():N}@teste.com",
             Senha = senha,
-            Idade = idade,
-            ModoFamilia = "Nova",
+            ModoFamilia = ModoEntradaFamilia.Nova,
             NomeFamilia = "Família Teste"
         };
 

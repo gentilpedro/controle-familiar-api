@@ -140,6 +140,25 @@ Finalidades possíveis:
 * Despesa
 * Ambas
 
+### Categorias do sistema
+
+Existe um catálogo de categorias base **disponível para todas as famílias**, para ninguém precisar criar "Água" e "Luz" na mão antes do primeiro lançamento:
+
+| Finalidade | Categorias |
+|---|---|
+| Receita | Salário, Renda extra |
+| Despesa | Moradia, Água, Luz, Gás, Internet e telefone, Mercado, Transporte, Saúde, Educação, Lazer |
+| Ambas | Outros |
+
+**Elas não pertencem a ninguém.** Existem uma única vez no banco, com `Categoria.FamiliaId` **nulo**, e aparecem na listagem de qualquer família. A lista canônica fica em `Data/CategoriasPadrao.cs`, e é a migration `SeedCategoriasDoSistema` que a insere — mexer no arquivo não altera o banco sozinho, é preciso uma migration nova.
+
+Consequências do modelo:
+
+* **Ninguém pode renomear ou excluir uma categoria do sistema.** `DELETE /api/categorias/{id}` responde **403** nesse caso. Quem quiser um nome próprio cria a categoria dele, que aí sim tem dono.
+* Categoria criada por uma família continua **privada dela** — o catálogo ser compartilhado não abre o isolamento entre famílias.
+* Transações podem apontar para categorias do sistema normalmente. Como a referência é viva, renomear uma delas no futuro muda o rótulo também nos lançamentos antigos.
+* A exportação LGPD traz só as categorias **da família**: o catálogo do sistema não é dado pessoal a portar.
+
 ## 💰 Transações
 
 * Criar transação
@@ -249,9 +268,11 @@ Authorization: Bearer <token>
 
 {
   "descricao": "Salário",
-  "finalidade": "Receita"
+  "finalidade": 1
 }
 ```
+
+`finalidade`: `1` = Receita, `2` = Despesa, `3` = Ambas.
 
 ## Criar transação
 
@@ -262,11 +283,15 @@ Authorization: Bearer <token>
 {
   "descricao": "Pagamento",
   "valor": 1500,
-  "tipo": "Receita",
+  "tipo": 1,
   "pessoaId": 1,
   "categoriaId": 1
 }
 ```
+
+`tipo`: `1` = Receita, `2` = Despesa.
+
+> ⚠️ `tipo` e `finalidade` trafegam como **número**, enquanto `modoFamilia` trafega como **string**. A diferença é proposital: só o `modoFamilia` tem `JsonStringEnumConverter` aplicado. Ligar o conversor globalmente mudaria o contrato dos outros dois e quebraria o frontend, que envia `tipo: 1`.
 
 ---
 

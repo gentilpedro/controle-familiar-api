@@ -4,6 +4,7 @@ using ControleFamiliarAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ControleFamiliarAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260811163957_SeedCategoriasPadrao")]
+    partial class SeedCategoriasPadrao
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -35,7 +38,7 @@ namespace ControleFamiliarAPI.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<int?>("FamiliaId")
+                    b.Property<int>("FamiliaId")
                         .HasColumnType("int");
 
                     b.Property<int>("Finalidade")
@@ -96,16 +99,9 @@ namespace ControleFamiliarAPI.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<int?>("UsuarioId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("FamiliaId");
-
-                    b.HasIndex("UsuarioId")
-                        .IsUnique()
-                        .HasFilter("[UsuarioId] IS NOT NULL");
 
                     b.ToTable("Pessoas");
                 });
@@ -418,7 +414,8 @@ namespace ControleFamiliarAPI.Migrations
                     b.HasOne("ControleFamiliarAPI.Models.Familia", "Familia")
                         .WithMany()
                         .HasForeignKey("FamiliaId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Familia");
                 });
@@ -431,14 +428,7 @@ namespace ControleFamiliarAPI.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("ControleFamiliarAPI.Models.Usuario", "Usuario")
-                        .WithOne()
-                        .HasForeignKey("ControleFamiliarAPI.Models.Pessoa", "UsuarioId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("Familia");
-
-                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("ControleFamiliarAPI.Models.Transacao", b =>

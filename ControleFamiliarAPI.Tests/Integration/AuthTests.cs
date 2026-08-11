@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using System.Net.Http.Json;
 using ControleFamiliarAPI.Data;
 using ControleFamiliarAPI.DTOs.Auth;
@@ -26,19 +27,43 @@ public class AuthTests : IntegrationTestBase
         Assert.NotEmpty(auth.Familia.CodigoConvite);
     }
 
+    // JSON cru em vez do DTO: agora que ModoFamilia é enum, um valor inválido
+    // não é representável em C# — mas continua sendo o que um cliente HTTP
+    // qualquer pode mandar, que é justamente o que este teste protege.
     [Fact]
     public async Task Registrar_ComModoFamiliaInvalido_Retorna400()
     {
-        var dto = new RegistrarDto
+        var json = $$"""
         {
-            Nome = "Usuário Teste",
-            Email = $"{Guid.NewGuid():N}@teste.com",
-            Senha = "Senha123",
-            Idade = 30,
-            ModoFamilia = "ModoQueNaoExiste"
-        };
+          "nome": "Usuário Teste",
+          "email": "{{Guid.NewGuid():N}}@teste.com",
+          "senha": "Senha123",
+          "modoFamilia": "ModoQueNaoExiste"
+        }
+        """;
 
-        var response = await Client.PostAsJsonAsync("/api/auth/registrar", dto, AuthTestHelper.JsonOptions);
+        var conteudo = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await Client.PostAsync("/api/auth/registrar", conteudo);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // Omitir o campo tem que ser 400 também: se ModoFamilia fosse um enum
+    // não-anulável, a ausência cairia no valor 0 e o cadastro criaria uma
+    // família nova em silêncio, sem o cliente ter pedido isso.
+    [Fact]
+    public async Task Registrar_SemModoFamilia_Retorna400()
+    {
+        var json = $$"""
+        {
+          "nome": "Usuário Teste",
+          "email": "{{Guid.NewGuid():N}}@teste.com",
+          "senha": "Senha123"
+        }
+        """;
+
+        var conteudo = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await Client.PostAsync("/api/auth/registrar", conteudo);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -82,8 +107,7 @@ public class AuthTests : IntegrationTestBase
             Nome = "Usuário Teste",
             Email = $"{Guid.NewGuid():N}@teste.com",
             Senha = "abc123", // 6 caracteres — política atual exige 8
-            Idade = 30,
-            ModoFamilia = "Nova"
+            ModoFamilia = ModoEntradaFamilia.Nova
         };
 
         var response = await Client.PostAsJsonAsync("/api/auth/registrar", dto, AuthTestHelper.JsonOptions);
@@ -202,12 +226,15 @@ public class AuthTests : IntegrationTestBase
 
         Assert.Equal(auth.Usuario.Email, dados.Usuario.Email);
         Assert.Equal(auth.Familia.CodigoConvite, dados.Familia.CodigoConvite);
-        // Duas pessoas: a do titular, criada junto com a conta, e o Filho
-        // cadastrado à mão logo acima.
-        Assert.Equal(2, dados.Pessoas.Count);
-        Assert.Contains(dados.Pessoas, p => p.Nome == "Filho");
-        Assert.Single(dados.Categorias);
-        Assert.Equal("Despesa", dados.Categorias[0].Finalidade);
+        Assert.Single(dados.Pessoas);
+        Assert.Equal("Filho", dados.Pessoas[0].Nome);
+
+        // A exportação traz só o que é dado do usuário: as categorias criadas
+        // pela família. O catálogo do sistema fica de fora de propósito — ele
+        // não pertence a ninguém e não é dado pessoal a portar (LGPD art. 18, V).
+        var mesada = Assert.Single(dados.Categorias);
+        Assert.Equal("Mesada", mesada.Descricao);
+        Assert.Equal("Despesa", mesada.Finalidade);
     }
 
     [Fact]
@@ -257,8 +284,7 @@ public class AuthTests : IntegrationTestBase
             Nome = "Membro Comum",
             Email = $"{Guid.NewGuid():N}@teste.com",
             Senha = "Senha123",
-            Idade = 30,
-            ModoFamilia = "Entrar",
+            ModoFamilia = ModoEntradaFamilia.Entrar,
             CodigoConvite = admin.Familia.CodigoConvite
         };
         var membroResponse = await Client.PostAsJsonAsync("/api/auth/registrar", membroDto, AuthTestHelper.JsonOptions);
@@ -286,8 +312,7 @@ public class AuthTests : IntegrationTestBase
             Nome = "Membro Comum",
             Email = $"{Guid.NewGuid():N}@teste.com",
             Senha = "Senha123",
-            Idade = 30,
-            ModoFamilia = "Entrar",
+            ModoFamilia = ModoEntradaFamilia.Entrar,
             CodigoConvite = admin.Familia.CodigoConvite
         };
         var membroResponse = await Client.PostAsJsonAsync("/api/auth/registrar", membroDto, AuthTestHelper.JsonOptions);

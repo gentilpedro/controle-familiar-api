@@ -73,8 +73,13 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (pessoa == null)
                 throw new NotFoundException("Pessoa não encontrada.");
 
+            // Aceita também as do sistema (FamiliaId null), que são justamente
+            // as que qualquer família pode usar num lançamento.
             var categoria = await _context.Categorias
-                .FirstOrDefaultAsync(c => c.Id == dto.CategoriaId && c.FamiliaId == _currentUser.FamiliaId, cancellationToken);
+                .FirstOrDefaultAsync(
+                    c => c.Id == dto.CategoriaId
+                        && (c.FamiliaId == _currentUser.FamiliaId || c.FamiliaId == null),
+                    cancellationToken);
 
             if (categoria == null)
                 throw new NotFoundException("Categoria não encontrada.");

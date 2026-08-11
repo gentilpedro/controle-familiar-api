@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using ControleFamiliarAPI.Models.Enums;
 
 namespace ControleFamiliarAPI.Models
@@ -24,11 +25,20 @@ namespace ControleFamiliarAPI.Models
         public FinalidadeCategoria Finalidade { get; set; }
 
         /// <summary>
-        /// Família à qual esta categoria pertence.
+        /// Família dona desta categoria, ou <c>null</c> quando ela é do sistema.
         /// </summary>
-        [Required]
-        public int FamiliaId { get; set; }
+        // Anulável de propósito: as categorias base (Água, Luz, Mercado...) não
+        // pertencem a ninguém — existem uma única vez e ficam disponíveis para
+        // todas as famílias. FamiliaId preenchido significa categoria criada
+        // por uma família, visível só para ela.
+        public int? FamiliaId { get; set; }
         public Familia? Familia { get; set; }
+
+        /// <summary>
+        /// Categoria base do sistema, disponível para todos e sem dono.
+        /// </summary>
+        [NotMapped]
+        public bool EhDoSistema => FamiliaId is null;
 
         /// <summary>
         /// Lista de transações vinculadas à categoria.

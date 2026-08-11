@@ -20,13 +20,18 @@ namespace ControleFamiliarAPI.Services.Implementations
 
         public async Task<List<CategoriaResponseDto>> Listar(CancellationToken cancellationToken = default)
         {
+            // As do sistema (FamiliaId null) aparecem para todo mundo; as da
+            // família, só para ela. Uma família nunca vê categoria de outra.
             return await _context.Categorias
-                .Where(c => c.FamiliaId == _currentUser.FamiliaId)
+                .Where(c => c.FamiliaId == _currentUser.FamiliaId || c.FamiliaId == null)
+                .OrderBy(c => c.FamiliaId == null ? 0 : 1)
+                .ThenBy(c => c.Id)
                 .Select(c => new CategoriaResponseDto
                 {
                     Id = c.Id,
                     Descricao = c.Descricao,
-                    Finalidade = c.Finalidade
+                    Finalidade = c.Finalidade,
+                    EhDoSistema = c.FamiliaId == null
                 })
                 .ToListAsync(cancellationToken);
         }
@@ -47,17 +52,63 @@ namespace ControleFamiliarAPI.Services.Implementations
             {
                 Id = categoria.Id,
                 Descricao = categoria.Descricao,
-                Finalidade = categoria.Finalidade
+                Finalidade = categoria.Finalidade,
+                EhDoSistema = categoria.EhDoSistema
+            };
+        }
+
+        public async Task<CategoriaResponseDto> Atualizar(int id, CategoriaUpdateDto dto, CancellationToken cancellationToken = default)
+        {
+            // Mesma busca do Deletar: sem filtrar por família, para separar
+            // "categoria do sistema" (existe, mas ninguém edita) de "categoria
+            // de outra família" (que, para quem pergunta, não existe).
+            var categoria = await _context.Categorias
+                .FirstOrDefaultAsync(
+                    c => c.Id == id && (c.FamiliaId == _currentUser.FamiliaId || c.FamiliaId == null),
+                    cancellationToken);
+
+            if (categoria == null)
+                throw new NotFoundException("Categoria não encontrada.");
+
+            // Renomear uma categoria do sistema mudaria o catálogo para todas as
+            // famílias de uma vez, pelo mesmo motivo que ela não pode ser excluída.
+            if (categoria.EhDoSistema)
+                throw new ForbiddenException("Categorias padrão do sistema não podem ser editadas.");
+
+            if (!string.IsNullOrWhiteSpace(dto.Descricao))
+                categoria.Descricao = dto.Descricao;
+
+            if (dto.Finalidade.HasValue)
+                categoria.Finalidade = dto.Finalidade.Value;
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return new CategoriaResponseDto
+            {
+                Id = categoria.Id,
+                Descricao = categoria.Descricao,
+                Finalidade = categoria.Finalidade,
+                EhDoSistema = categoria.EhDoSistema
             };
         }
 
         public async Task Deletar(int id, CancellationToken cancellationToken = default)
         {
+            // Busca sem filtrar por família para conseguir distinguir os dois
+            // casos: categoria do sistema (existe, mas ninguém pode apagar) de
+            // categoria de outra família (que, para quem pergunta, não existe).
             var categoria = await _context.Categorias
-                .FirstOrDefaultAsync(c => c.Id == id && c.FamiliaId == _currentUser.FamiliaId, cancellationToken);
+                .FirstOrDefaultAsync(
+                    c => c.Id == id && (c.FamiliaId == _currentUser.FamiliaId || c.FamiliaId == null),
+                    cancellationToken);
 
             if (categoria == null)
                 throw new NotFoundException("Categoria não encontrada.");
+
+            // Categoria do sistema não tem dono, então não é de ninguém para
+            // excluir — apagá-la sumiria com ela para todas as famílias.
+            if (categoria.EhDoSistema)
+                throw new ForbiddenException("Categorias padrão do sistema não podem ser excluídas.");
 
             _context.Categorias.Remove(categoria);
             await _context.SaveChangesAsync(cancellationToken);
