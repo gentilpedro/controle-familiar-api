@@ -1,4 +1,4 @@
-name: Build, publish e deploy para MonsterASP.NET
+name: Build, publish, deploy para MonsterASP.NET e release
 
 # Só roda em push na main (deploy de producao) ou manualmente pelo Actions.
 # Branches de feature/PR nao disparam deploy.
@@ -6,6 +6,16 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+
+# Dois merges seguidos na main nao podem rodar em paralelo: o deploy por FTP
+# sobrescreve /wwwroot inteiro (duas execucoes juntas deixariam o site num
+# estado misturado) e o calculo da proxima versao le as tags existentes — se
+# as duas lessem a mesma tag, tentariam criar a mesma versao e uma falharia.
+# cancel-in-progress: false porque o deploy ja iniciado deve terminar, nao ser
+# abortado no meio de um upload.
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
 
 env:
   DOTNET_VERSION: "9.0.x"
@@ -107,3 +117,62 @@ jobs:
       - name: Bring app back online
         run: |
           curl --ftp-pasv --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" -Q "DELE /wwwroot/app_offline.htm" "ftp://${{ secrets.FTP_SERVER }}/"
+
+  # A Release e criada num job separado que depende do deploy: se o build, os
+  # testes ou o upload por FTP falharem, nenhuma versao e publicada. Assim toda
+  # tag no GitHub corresponde exatamente ao que esta no ar em fiscalhub.runasp.net,
+  # e nao apenas a um commit que entrou na main.
+  release:
+    needs: build_and_deploy
+    runs-on: ubuntu-latest
+
+    # Criar tag e Release exige escrita no repositorio. O job de deploy continua
+    # com a permissao padrao (somente leitura) — so este precisa de contents: write.
+    permissions:
+      contents: write
+
+    # Somente push na main gera versao nova. Um workflow_dispatch apontado para
+    # uma tag antiga (o procedimento de rollback documentado no README) reimplanta
+    # aquela versao sem inventar um numero novo em cima dela.
+    if: github.event_name == 'push'
+
+    steps:
+      # fetch-depth: 0 traz o historico completo e as tags — sem isso o passo
+      # seguinte nao enxerga a ultima versao publicada e recomecaria do v1.0.0.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calcular a proxima versao
+        id: versao
+        run: |
+          # --sort=-v:refname ordena por versao (nao alfabeticamente), entao a
+          # primeira linha e a maior tag. O filtro exige o formato vN.N.N para
+          # ignorar qualquer tag manual fora do padrao.
+          ultima=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1 || true)
+
+          if [ -z "$ultima" ]; then
+            proxima="v1.0.0"
+          else
+            numeros="${ultima#v}"
+            maior="${numeros%%.*}"
+            resto="${numeros#*.}"
+            menor="${resto%%.*}"
+            patch="${resto##*.}"
+            proxima="v${maior}.${menor}.$((patch + 1))"
+          fi
+
+          echo "Ultima versao: ${ultima:-nenhuma} -> nova: $proxima"
+          echo "tag=$proxima" >> "$GITHUB_OUTPUT"
+
+      # --generate-notes monta o corpo da release a partir dos PRs mergeados
+      # desde a release anterior. --target fixa a tag no commit que acabou de ser
+      # implantado, e nao no que estiver na ponta da main quando isso rodar.
+      - name: Criar a Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.versao.outputs.tag }}" \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.versao.outputs.tag }}" \
+            --generate-notes
