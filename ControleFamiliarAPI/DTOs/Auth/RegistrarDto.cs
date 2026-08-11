@@ -1,3 +1,4 @@
+using ControleFamiliarAPI.Models.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace ControleFamiliarAPI.DTOs.Auth
@@ -17,11 +18,14 @@ namespace ControleFamiliarAPI.DTOs.Auth
         public string Senha { get; set; } = string.Empty;
 
         /// <summary>
-        /// "Nova" para criar uma família própria (uso individual) ou
-        /// "Entrar" para entrar em uma família existente via código de convite.
+        /// "Nova" para criar uma família própria (uso individual) ou "Entrar"
+        /// para entrar em uma família existente via código de convite.
         /// </summary>
+        // Anulável de propósito: num enum não-anulável, um corpo que omitisse o
+        // campo cairia no valor 0 e o [Required] passaria batido — o cadastro
+        // criaria uma família nova em silêncio. Anulável, a ausência é um 400.
         [Required]
-        public string ModoFamilia { get; set; } = "Nova";
+        public ModoEntradaFamilia? ModoFamilia { get; set; }
 
         /// <summary>
         /// Obrigatório quando ModoFamilia = "Nova".
