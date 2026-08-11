@@ -62,5 +62,5 @@ e-mail fica desativado e o código de convite continua funcionando).
 
 ## Testes
 
-`dotnet test` — 31 testes, integração com SQLite em memória via `CustomWebApplicationFactory`.
+`dotnet test` — 53 testes, integração com SQLite em memória via `CustomWebApplicationFactory`.
 Cobrem autenticação, isolamento por família, health check e as regras de negócio das transações.

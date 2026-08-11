@@ -6,6 +6,7 @@ namespace ControleFamiliarAPI.Services.Interfaces
     {
         Task<List<CategoriaResponseDto>> Listar(CancellationToken cancellationToken = default);
         Task<CategoriaResponseDto> Criar(CategoriaCreateDto dto, CancellationToken cancellationToken = default);
+        Task<CategoriaResponseDto> Atualizar(int id, CategoriaUpdateDto dto, CancellationToken cancellationToken = default);
         Task Deletar(int id, CancellationToken cancellationToken = default);
     }
 }

@@ -66,6 +66,33 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(categoria);
         }
 
+        [HttpPatch("{id}")]
+        [EndpointSummary("Atualiza uma categoria existente")]
+        [EndpointDescription("""
+            Permite alterar a descrição ou a finalidade de uma categoria da própria família.
+            O identificador da categoria deve ser informado na rota.
+
+            Atualização parcial: envie só os campos que quer alterar.
+
+            Finalidades possíveis:
+            1 → Receita
+            2 → Despesa
+            3 → Ambas
+
+            Importante:
+            As categorias padrão do sistema são compartilhadas por todas as famílias
+            e não podem ser editadas.
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult> Atualizar(int id, CategoriaUpdateDto dto, CancellationToken cancellationToken)
+        {
+            var categoria = await _service.Atualizar(id, dto, cancellationToken);
+            return Ok(categoria);
+        }
+
         [HttpDelete("{id}")]
         [EndpointSummary("Remove uma categoria do sistema")]
         [EndpointDescription("""
