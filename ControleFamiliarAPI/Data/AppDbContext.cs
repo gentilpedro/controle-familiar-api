@@ -83,9 +83,12 @@ namespace ControleFamiliarAPI.Data
                 entity.Property(c => c.Finalidade)
                       .IsRequired();
 
+                // IsRequired(false): categoria do sistema não tem família dona.
+                // Sem isso o EF infere obrigatório e a FK volta a ser NOT NULL.
                 entity.HasOne(c => c.Familia)
                       .WithMany()
                       .HasForeignKey(c => c.FamiliaId)
+                      .IsRequired(false)
                       .OnDelete(DeleteBehavior.Restrict);
             });
 

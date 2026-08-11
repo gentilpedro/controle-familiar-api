@@ -140,9 +140,9 @@ Finalidades possíveis:
 * Despesa
 * Ambas
 
-### Categorias padrão
+### Categorias do sistema
 
-Toda família nasce com um conjunto de categorias já cadastradas, para ninguém precisar criar "Água" e "Luz" na mão antes do primeiro lançamento:
+Existe um catálogo de categorias base **disponível para todas as famílias**, para ninguém precisar criar "Água" e "Luz" na mão antes do primeiro lançamento:
 
 | Finalidade | Categorias |
 |---|---|
@@ -150,9 +150,14 @@ Toda família nasce com um conjunto de categorias já cadastradas, para ninguém
 | Despesa | Moradia, Água, Luz, Gás, Internet e telefone, Mercado, Transporte, Saúde, Educação, Lazer |
 | Ambas | Outros |
 
-São categorias comuns da família, não do sistema: podem ser renomeadas ou excluídas, e nada obriga a usá-las. A lista canônica fica em `Data/CategoriasPadrao.cs`.
+**Elas não pertencem a ninguém.** Existem uma única vez no banco, com `Categoria.FamiliaId` **nulo**, e aparecem na listagem de qualquer família. A lista canônica fica em `Data/CategoriasPadrao.cs`, e é a migration `SeedCategoriasDoSistema` que a insere — mexer no arquivo não altera o banco sozinho, é preciso uma migration nova.
 
-Cada família recebe a **própria cópia** — não existe categoria global. O modelo inteiro é isolado por família (`Categoria.FamiliaId` é obrigatório); uma categoria compartilhada exigiria `FamiliaId` anulável, uma regra nova em todo filtro por família, e impediria o usuário de renomear "Mercado" para "Supermercado" sem afetar todo mundo.
+Consequências do modelo:
+
+* **Ninguém pode renomear ou excluir uma categoria do sistema.** `DELETE /api/categorias/{id}` responde **403** nesse caso. Quem quiser um nome próprio cria a categoria dele, que aí sim tem dono.
+* Categoria criada por uma família continua **privada dela** — o catálogo ser compartilhado não abre o isolamento entre famílias.
+* Transações podem apontar para categorias do sistema normalmente. Como a referência é viva, renomear uma delas no futuro muda o rótulo também nos lançamentos antigos.
+* A exportação LGPD traz só as categorias **da família**: o catálogo do sistema não é dado pessoal a portar.
 
 ## 💰 Transações
 

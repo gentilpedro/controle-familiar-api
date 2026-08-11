@@ -4,19 +4,16 @@ using ControleFamiliarAPI.Models.Enums;
 namespace ControleFamiliarAPI.Data
 {
     /// <summary>
-    /// Categorias criadas automaticamente para toda família nova.
+    /// Catálogo de categorias do sistema, disponível para todas as famílias.
     /// </summary>
-    // São só um ponto de partida: pertencem à família como qualquer outra
-    // categoria e podem ser renomeadas ou excluídas. Nada no sistema obriga a
-    // usá-las — a ideia é que ninguém precise cadastrar "Água" e "Luz" na mão
-    // antes de lançar a primeira despesa.
+    // Não pertencem a ninguém: existem uma única vez no banco, com
+    // Categoria.FamiliaId nulo, e aparecem na listagem de qualquer família.
+    // Ninguém pode renomeá-las ou excluí-las — quem quiser um nome próprio cria
+    // a categoria dele, que aí sim tem dono.
     //
-    // Por que uma cópia por família, e não uma tabela global de categorias do
-    // sistema: todo o modelo é isolado por família (Categoria.FamiliaId é
-    // obrigatório) e as transações apontam para a categoria. Categoria global
-    // exigiria FamiliaId anulável, uma regra nova em todo lugar que filtra por
-    // família, e ainda travaria a edição — o usuário não poderia renomear
-    // "Mercado" para "Supermercado" sem afetar todo mundo.
+    // Esta lista é a fonte da verdade do catálogo. A migration
+    // SeedCategoriasDoSistema insere exatamente estes itens; mexer aqui não
+    // altera o banco sozinho, é preciso uma migration nova.
     public static class CategoriasPadrao
     {
         public static readonly IReadOnlyList<(string Descricao, FinalidadeCategoria Finalidade)> Itens =
@@ -39,14 +36,17 @@ namespace ControleFamiliarAPI.Data
         ];
 
         /// <summary>
-        /// Monta as categorias padrão já vinculadas à família informada.
+        /// Monta as categorias do sistema, sem família dona.
         /// </summary>
-        public static IEnumerable<Categoria> ParaFamilia(int familiaId) =>
+        // Usada pelos testes de integração, onde o schema vem de EnsureCreated
+        // a partir do modelo e as migrations não rodam — sem isto o catálogo
+        // não existiria lá.
+        public static IEnumerable<Categoria> DoSistema() =>
             Itens.Select(item => new Categoria
             {
                 Descricao = item.Descricao,
                 Finalidade = item.Finalidade,
-                FamiliaId = familiaId
+                FamiliaId = null
             });
     }
 }
