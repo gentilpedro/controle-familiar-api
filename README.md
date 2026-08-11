@@ -363,6 +363,10 @@ git tag v1.1.0 && git push origin v1.1.0
 
 Tag + notas geradas automaticamente a partir dos títulos dos PRs mergeados desde a release anterior — por isso vale manter os títulos de PR descritivos, já que viram o changelog.
 
+As notas são agrupadas em categorias conforme o `.github/release.yml`: **🚀 Novidades** (`enhancement`), **🐛 Correções** (`bug`), **📖 Documentação** (`documentation`) e **📦 Outras mudanças**.
+
+⚠️ O agrupamento usa a **label do Pull Request**, não o título nem o commit. Um PR sem label cai em "Outras mudanças" — é para isso que serve a categoria coringa `"*"` no fim do arquivo; sem ela, PRs sem label seriam *omitidos* das notas. Para que o changelog saia realmente organizado, é preciso rotular os PRs ao abri-los.
+
 Nenhum binário é anexado, de propósito: o pacote publicado contém o `appsettings.Production.json` já preenchido com os segredos reais (connection string, `Jwt:Key`, chave do Stripe, senha do SMTP), e anexá-lo a uma release de um repositório público vazaria todos eles.
 
 ### Ordem das etapas
