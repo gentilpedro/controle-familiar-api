@@ -40,6 +40,17 @@ namespace ControleFamiliarAPI.Models
         public DateOnly Data { get; set; }
 
         /// <summary>
+        /// Confirmada — "paga" para Despesa, "recebida" para Receita (mesmo
+        /// campo, rótulo contextual: não são dois booleanos). Transação
+        /// avulsa nasce true por padrão (o comum é registrar algo que já
+        /// aconteceu); ocorrência de série (parcelamento, recorrência
+        /// percentual) nasce sempre false — é uma obrigação futura até o
+        /// usuário confirmar.
+        /// </summary>
+        [Required]
+        public bool Pago { get; set; } = true;
+
+        /// <summary>
         /// Identifica o grupo de transações nascidas juntas de um
         /// parcelamento ou de uma divisão percentual (ex.: salário
         /// quinzenal). Nulo para transação avulsa.

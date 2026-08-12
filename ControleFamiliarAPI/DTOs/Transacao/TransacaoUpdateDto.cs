@@ -14,6 +14,13 @@ namespace ControleFamiliarAPI.DTOs.Transacao
 
         public DateOnly? Data { get; set; }
 
+        /// <summary>
+        /// Nunca propaga com AplicarAFuturas, mesmo raciocínio de Data: o
+        /// status de pagamento é por ocorrência, editar uma não deveria
+        /// marcar as outras como pagas/recebidas junto.
+        /// </summary>
+        public bool? Pago { get; set; }
+
         public TipoTransacao? Tipo { get; set; }
 
         public int? PessoaId { get; set; }

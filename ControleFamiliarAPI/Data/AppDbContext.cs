@@ -18,6 +18,7 @@ namespace ControleFamiliarAPI.Data
         public DbSet<Usuario> Usuarios => Set<Usuario>();
         public DbSet<TokenRevogado> TokensRevogados => Set<TokenRevogado>();
         public DbSet<RegistroAuditoria> RegistrosAuditoria => Set<RegistroAuditoria>();
+        public DbSet<FechamentoMensal> FechamentosMensais => Set<FechamentoMensal>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -132,6 +133,10 @@ namespace ControleFamiliarAPI.Data
                 entity.Property(t => t.Data)
                       .IsRequired();
 
+                entity.Property(t => t.Pago)
+                      .IsRequired()
+                      .HasDefaultValue(true);
+
                 // Relacionamento: uma Pessoa possui muitas Transacoes
                 entity.HasOne(t => t.Pessoa)
                       .WithMany(p => p.Transacoes)
@@ -197,6 +202,36 @@ namespace ControleFamiliarAPI.Data
 
                 // Consulta mais comum: auditoria de uma família, mais recente primeiro.
                 entity.HasIndex(r => new { r.FamiliaId, r.CriadoEm });
+            });
+
+            // Configuração da entidade FechamentoMensal
+            modelBuilder.Entity<FechamentoMensal>(entity =>
+            {
+                entity.HasKey(f => f.Id);
+
+                entity.Property(f => f.SaldoTransportado)
+                      .IsRequired()
+                      .HasColumnType("decimal(18,2)");
+
+                entity.HasOne(f => f.Familia)
+                      .WithMany()
+                      .HasForeignKey(f => f.FamiliaId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // Restrict, não Cascade: a Transacao de saldo é uma
+                // transação normal (pode ser filtrada, listada, etc.) — não
+                // faz sentido ela sumir se o FechamentoMensal for removido
+                // (o que hoje nem existe como operação, mas o comportamento
+                // de FK já fica correto se um dia existir).
+                entity.HasOne(f => f.TransacaoGerada)
+                      .WithMany()
+                      .HasForeignKey(f => f.TransacaoGeradaId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // Impede fechar o mesmo mês duas vezes a nível de banco, não
+                // só checando na aplicação.
+                entity.HasIndex(f => new { f.FamiliaId, f.Mes })
+                      .IsUnique();
             });
         }
     }

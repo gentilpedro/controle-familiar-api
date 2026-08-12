@@ -9,6 +9,7 @@ namespace ControleFamiliarAPI.DTOs.Transacao
         public decimal Valor { get; set; }
         public TipoTransacao Tipo { get; set; }
         public DateOnly Data { get; set; }
+        public bool Pago { get; set; }
         public Guid? SerieId { get; set; }
         public int? NumeroParcela { get; set; }
         public int? TotalParcelas { get; set; }

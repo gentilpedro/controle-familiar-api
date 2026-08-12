@@ -630,4 +630,146 @@ public class TransacoesTests : IntegrationTestBase
 
         Assert.Equal(new DateOnly(2026, 2, 28), ocorrencias[1].Data);
     }
+
+    [Fact]
+    public async Task Criar_ComPagoOmitido_NasceComoPago()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+        var id = await CriarTransacaoAsync(pessoaId, categoriaId);
+
+        var transacao = (await ListarTodasAsync()).Single(t => t.Id == id);
+
+        Assert.True(transacao.Pago);
+    }
+
+    [Fact]
+    public async Task Criar_ComPagoFalse_NasceComoPendente()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+
+        var dto = new TransacaoCreateDto
+        {
+            Descricao = "Conta a pagar",
+            Valor = 100,
+            Tipo = TipoTransacao.Despesa,
+            Data = DateOnly.FromDateTime(DateTime.UtcNow),
+            Pago = false,
+            PessoaId = pessoaId,
+            CategoriaId = categoriaId
+        };
+        (await Client.PostAsJsonAsync("/api/transacoes", dto, AuthTestHelper.JsonOptions)).EnsureSuccessStatusCode();
+
+        var transacao = (await ListarTodasAsync()).Single(t => t.Descricao == "Conta a pagar");
+
+        Assert.False(transacao.Pago);
+    }
+
+    /// <summary>
+    /// Parcela futura é uma obrigação até o usuário confirmar — mesmo a
+    /// primeira, ainda que criada hoje.
+    /// </summary>
+    [Fact]
+    public async Task CriarParcelada_TodasAsParcelasNascemComoPendentes()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Despesa);
+
+        var dto = new TransacaoParceladaCreateDto
+        {
+            Descricao = "Geladeira",
+            ValorTotal = 900,
+            NumeroParcelas = 3,
+            Tipo = TipoTransacao.Despesa,
+            DataPrimeiraParcela = DateOnly.FromDateTime(DateTime.UtcNow),
+            PessoaId = pessoaId,
+            CategoriaId = categoriaId
+        };
+        (await Client.PostAsJsonAsync("/api/transacoes/parceladas", dto, AuthTestHelper.JsonOptions)).EnsureSuccessStatusCode();
+
+        var parcelas = (await ListarTodasAsync()).Where(t => t.Descricao == "Geladeira").ToList();
+
+        Assert.Equal(3, parcelas.Count);
+        Assert.All(parcelas, p => Assert.False(p.Pago));
+    }
+
+    [Fact]
+    public async Task MarcarPago_AlternaOStatus()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+        var id = await CriarTransacaoAsync(pessoaId, categoriaId);
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/api/transacoes/{id}/pago", new TransacaoPagoUpdateDto { Pago = false }, AuthTestHelper.JsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var transacao = (await ListarTodasAsync()).Single(t => t.Id == id);
+        Assert.False(transacao.Pago);
+
+        (await Client.PatchAsJsonAsync(
+            $"/api/transacoes/{id}/pago", new TransacaoPagoUpdateDto { Pago = true }, AuthTestHelper.JsonOptions)).EnsureSuccessStatusCode();
+
+        transacao = (await ListarTodasAsync()).Single(t => t.Id == id);
+        Assert.True(transacao.Pago);
+    }
+
+    [Fact]
+    public async Task MarcarPago_ComTransacaoInexistente_Retorna404()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var response = await Client.PatchAsJsonAsync(
+            "/api/transacoes/999999/pago", new TransacaoPagoUpdateDto { Pago = true }, AuthTestHelper.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Igual à Data: Pago é por ocorrência, AplicarAFuturas nunca deveria
+    /// marcar/desmarcar as outras parcelas junto.
+    /// </summary>
+    [Fact]
+    public async Task Atualizar_ComAplicarAFuturas_NuncaPropagaPago()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Despesa);
+
+        var dto = new TransacaoParceladaCreateDto
+        {
+            Descricao = "Sofá",
+            ValorTotal = 600,
+            NumeroParcelas = 2,
+            Tipo = TipoTransacao.Despesa,
+            DataPrimeiraParcela = DateOnly.FromDateTime(DateTime.UtcNow),
+            PessoaId = pessoaId,
+            CategoriaId = categoriaId
+        };
+        (await Client.PostAsJsonAsync("/api/transacoes/parceladas", dto, AuthTestHelper.JsonOptions)).EnsureSuccessStatusCode();
+
+        var parcelas = (await ListarTodasAsync()).Where(t => t.Descricao == "Sofá").OrderBy(t => t.NumeroParcela).ToList();
+        var parcela1 = parcelas[0];
+
+        (await Client.PatchAsJsonAsync(
+            $"/api/transacoes/{parcela1.Id}",
+            new TransacaoUpdateDto { Pago = true, AplicarAFuturas = true },
+            AuthTestHelper.JsonOptions)).EnsureSuccessStatusCode();
+
+        var atualizadas = (await ListarTodasAsync()).Where(t => t.SerieId == parcela1.SerieId).OrderBy(t => t.NumeroParcela).ToList();
+
+        Assert.True(atualizadas[0].Pago);
+        Assert.False(atualizadas[1].Pago); // intocada
+    }
 }

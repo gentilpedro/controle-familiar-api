@@ -154,6 +154,24 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<string>("Transação atualizada com sucesso"));
         }
 
+        [HttpPatch("{id}/pago")]
+        [Tags("Transações")]
+        [EndpointSummary("Marca uma transação como paga/recebida ou pendente")]
+        [EndpointDescription("""
+            Endpoint dedicado pro clique direto na tabela — não passa pelas
+            regras de negócio de Atualizar (Pessoa/Categoria/Tipo/Valor não
+            mudam, só o status). "Pago" pra Despesa, "Recebido" pra Receita:
+            mesmo campo, rótulo contextual conforme o Tipo da transação.
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult> MarcarPago(int id, TransacaoPagoUpdateDto dto, CancellationToken cancellationToken)
+        {
+            await _service.MarcarPago(id, dto.Pago!.Value, cancellationToken);
+            return Ok(new ApiResponse<string>("Status atualizado com sucesso"));
+        }
+
         [HttpDelete("{id}")]
         [Tags("Transações")]
         [EndpointSummary("Remove uma transação financeira")]

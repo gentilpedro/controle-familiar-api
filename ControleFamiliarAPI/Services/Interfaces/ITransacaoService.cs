@@ -15,6 +15,8 @@ namespace ControleFamiliarAPI.Services.Interfaces
 
         Task Atualizar(int id, TransacaoUpdateDto dto, CancellationToken cancellationToken = default);
 
+        Task MarcarPago(int id, bool pago, CancellationToken cancellationToken = default);
+
         Task Deletar(int id, bool excluirFuturas = false, CancellationToken cancellationToken = default);
     }
 }

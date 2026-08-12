@@ -208,6 +208,60 @@ diferentes).
 - Tipo é sempre `Receita`, implícito — só uma categoria com `AceitaDivisaoPercentual` libera o
   fluxo, e ela é de Receita.
 
+**Passo 5 — status Pago/Recebido**: pedido novo, fora do plano original (compartilhamento de uma
+planilha pessoal que motivou este e o próximo passo, "fechamento de mês" — ver plano salvo em
+`C:\Users\pedro.rodrigues\.claude\plans\foamy-knitting-lightning.md`, reescrito pra este pedido).
+`Transacao.Pago` (`bool`, `NOT NULL`, default `true`) — "paga" pra Despesa, "recebida" pra Receita,
+**mesmo campo**, rótulo contextual conforme `Tipo` (não são dois booleanos).
+
+- Migration direta (`AddColumn` com `defaultValue: true`), sem os três passos que `Data` precisou —
+  aqui o backfill é uma leitura razoável do que já existe (tudo que já está no banco é passado), não
+  uma invenção como foi com data.
+- `TransacaoCreateDto.Pago` é `bool?`, mas **não** segue o padrão "omitir vira 400" de `Data`/`Idade`
+  — aqui omitir tem um default sensato (`true`, o comum é registrar algo que já aconteceu), não é
+  um esquecimento perigoso. `TransacaoUpdateDto.Pago` também é opcional, mesma lógica de `Data`:
+  **nunca propaga** com `AplicarAFuturas` (status de pagamento é por ocorrência).
+- `CriarParcelada`/`CriarRecorrenciaPercentual`: toda ocorrência nasce com `Pago = false`, sempre,
+  sem campo exposto nos DTOs — são obrigações futuras até o usuário confirmar, mesmo a primeira
+  parcela (pode ter sido criada hoje mas ainda não paga de fato).
+- **`PATCH /transacoes/{id}/pago`** é um endpoint dedicado, separado do `Atualizar` geral — clique
+  direto na tabela do front, sem abrir o modal de editar inteiro só pra marcar uma caixinha.
+  `TransacaoPagoUpdateDto.Pago` é `bool?` `[Required]`, mesma razão de sempre: em `bool` não-nulo,
+  omitir o campo cairia silenciosamente em `false` (desmarcaria a transação sem avisar).
+
+**Passo 6 (final) — Painel Mensal (`GET`/`POST /api/painel-mensal`)**: saldo do mês (receitas
+confirmadas − despesas confirmadas, pendência não entra na conta) e um "fechamento" manual que
+transporta esse saldo pro mês seguinte como uma transação normal.
+
+- **A recursão resolve sozinha.** O saldo de julho vira uma `Transacao` datada de 01/08 — ao fechar
+  agosto, a soma "receitas confirmadas do mês" já inclui essa transação automaticamente, sem lógica
+  especial pra "saldo do saldo" (coberto por
+  `FecharMes_SaldoTransportadoContaNoFechamentoDoMesSeguinte`).
+- **Nova entidade `FechamentoMensal`**, índice único `(FamiliaId, Mes)` — impede fechar o mesmo mês
+  duas vezes a nível de banco, não só checando na aplicação. `TransacaoGeradaId` é nullable: saldo
+  exatamente zero não gera transação (não faz sentido uma de R$0,00), mas o registro de fechamento
+  existe do mesmo jeito — `MesFechado` no resumo não depende de existir uma transação gerada.
+- **Nova categoria de sistema `"Saldo Anterior"`** (`Finalidade = Ambas`). `PainelMensalService`
+  acha ela **comparando por nome** (`Descricao == "Saldo Anterior" && FamiliaId == null`) — é a
+  única exceção ao princípio "nunca comparar categoria por nome" que `AceitaDivisaoPercentual`
+  estabeleceu, e a exceção é deliberada: aquele flag protege uma **escolha exposta ao usuário**
+  (qual categoria de família libera divisão percentual); aqui é infraestrutura interna do próprio
+  seed — o `FamiliaId == null` já isola do catálogo de qualquer família, e o nome nunca muda porque
+  categoria de sistema é imutável.
+- **A transação gerada é atribuída à `Pessoa` do usuário que fechou o mês** (via `Pessoa.UsuarioId`,
+  o vínculo que existe desde o cadastro). Sem essa `Pessoa` (conta antiga, backfill ainda não
+  rodado), cai pra qualquer pessoa da família — sempre existe ao menos uma.
+- **Não passa pela REGRA 1** (`TransacaoService.ValidarRegrasDeNegocio`, "menor não lança receita")
+  — saldo transportado é contabilidade do sistema, não renda de alguém; bloquear o fechamento porque
+  o titular é menor de idade seria um bug de UX, não uma proteção que faz sentido aqui.
+- `AddMonths` resolve a virada de ano sozinho (dezembro fechado gera a transação em janeiro do ano
+  seguinte, não "mês 13" do mesmo ano) — coberto por `FecharMes_EmDezembro_...`.
+- ⚠️ **Não existe "reabrir" um mês fechado nesta versão** — decisão de escopo explícita. Se um
+  lançamento atrasado entrar no mês depois do fechamento, o saldo transportado fica desatualizado
+  até uma correção manual (editar a transação de saldo, ou lançar um ajuste).
+- `GET /transacoes` **continua sem filtro de período** — o Painel Mensal filtra no cliente (busca
+  até 200 itens e filtra por `Data` localmente). Fora de escopo desta rodada, registrado no plano.
+
 ## Deploy e release
 
 `.github/workflows/deploy-monsterasp.yml` roda em push na `main`: build → test → publish → injeta
