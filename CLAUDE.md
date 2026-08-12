@@ -68,10 +68,28 @@ Desde 2026-08, `Pessoa.UsuarioId` (nullable) liga uma pessoa à conta que ela re
   `SaveChanges` de propósito: o índice único de `UsuarioId` é filtrado, então o vínculo antigo tem
   que estar solto antes de o novo reivindicar o mesmo usuário.
 
-⚠️ **A migration não faz backfill.** Conta criada antes disso continua sem `Pessoa` vinculada — o que
-está certo, porque essas famílias já cadastraram as pessoas delas à mão e um backfill duplicaria. O
-efeito prático é que `EhMembro` vem `false` para todo mundo que já existia, e a proteção contra
-exclusão só passa a valer para conta nova.
+**`BackfillPessoaDosUsuariosExistentes` (2026-08-12) fecha a lacuna das contas antigas.** É migration
+só de dados (sem mudança de schema), em duas passadas:
+
+1. Casa por nome: se existe **exatamente uma** `Pessoa` sem dono na família com o mesmo nome do
+   `Usuario` (case-insensitive, trim) **e** esse é o único `Usuario` da família pedindo aquele nome,
+   vincula os dois. A checagem é 1:1 nos dois sentidos de propósito — só olhar o lado da Pessoa deixa
+   passar o caso de duas contas homônimas na mesma família (duas "Ana"), onde o `UPDATE ... FROM`
+   ligaria as duas ao mesmo registro de forma não determinística.
+2. Quem sobra sem match vira `Pessoa` nova, com idade **18** (mesmo padrão de
+   `FamiliaService.RemoverMembro`) — não há como saber a idade real de uma conta que nasceu antes do
+   cadastro pedir isso, e assumir adulto evita bloquear receita de alguém que provavelmente não é
+   menor.
+
+⚠️ **T-SQL puro, não roda contra o provider de teste.** `CustomWebApplicationFactory` usa
+`EnsureCreatedAsync()`, não `Database.Migrate()`, então essa migration nunca é exercida pela suíte —
+`UPDATE ... FROM` e `COUNT(*) OVER (PARTITION BY ...)` não têm o mesmo suporte no SQLite dos testes.
+Revisão foi manual; qualquer alteração nela merece re-leitura cuidadosa, não só `dotnet test` verde.
+
+`Down()` é vazio de propósito: não há como distinguir depois do fato quais vínculos vieram desta
+migration e quais já existiam (ex.: conta criada via `Registrar` entre a migration ser escrita e ser
+aplicada em produção). Reverter arriscaria desvincular `Pessoa` legítima — rollback aqui é restaurar
+backup, não `Down()`.
 
 ## Deploy e release
 
