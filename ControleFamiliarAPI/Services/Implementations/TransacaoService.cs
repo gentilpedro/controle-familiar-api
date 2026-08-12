@@ -90,18 +90,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (categoria == null)
                 throw new NotFoundException("Categoria não encontrada.");
 
-            // REGRA 1
-            if (pessoa.Idade < 18 && dto.Tipo == TipoTransacao.Receita)
-                throw new BusinessRuleException("Menores de idade só podem registrar despesas.");
-
-            // REGRA 2
-            if (dto.Tipo == TipoTransacao.Receita &&
-                categoria.Finalidade == FinalidadeCategoria.Despesa)
-                throw new BusinessRuleException("Categoria incompatível.");
-
-            if (dto.Tipo == TipoTransacao.Despesa &&
-                categoria.Finalidade == FinalidadeCategoria.Receita)
-                throw new BusinessRuleException("Categoria incompatível.");
+            ValidarRegrasDeNegocio(pessoa, categoria, dto.Tipo);
 
             var transacao = new Transacao
             {
@@ -117,6 +106,88 @@ namespace ControleFamiliarAPI.Services.Implementations
             _context.Transacoes.Add(transacao);
 
             await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task Atualizar(int id, TransacaoUpdateDto dto, CancellationToken cancellationToken = default)
+        {
+            var transacao = await _context.Transacoes
+                .FirstOrDefaultAsync(t => t.Id == id && t.FamiliaId == _currentUser.FamiliaId, cancellationToken);
+
+            if (transacao == null)
+                throw new NotFoundException("Transação não encontrada.");
+
+            if (dto.Valor.HasValue && dto.Valor.Value <= 0)
+                throw new BusinessRuleException("O valor deve ser positivo.");
+
+            // As regras (REGRA 1/REGRA 2) valem sobre o resultado final, não
+            // só sobre o campo que mudou — editar só a Descrição não deveria
+            // reavaliar nada, mas editar só o Tipo precisa checar contra a
+            // Pessoa e a Categoria que a transação já tinha.
+            var pessoaId = dto.PessoaId ?? transacao.PessoaId;
+            var categoriaId = dto.CategoriaId ?? transacao.CategoriaId;
+            var tipo = dto.Tipo ?? transacao.Tipo;
+
+            var pessoa = await _context.Pessoas
+                .FirstOrDefaultAsync(p => p.Id == pessoaId && p.FamiliaId == _currentUser.FamiliaId, cancellationToken);
+
+            if (pessoa == null)
+                throw new NotFoundException("Pessoa não encontrada.");
+
+            var categoria = await _context.Categorias
+                .FirstOrDefaultAsync(
+                    c => c.Id == categoriaId
+                        && (c.FamiliaId == _currentUser.FamiliaId || c.FamiliaId == null),
+                    cancellationToken);
+
+            if (categoria == null)
+                throw new NotFoundException("Categoria não encontrada.");
+
+            ValidarRegrasDeNegocio(pessoa, categoria, tipo);
+
+            if (!string.IsNullOrEmpty(dto.Descricao))
+                transacao.Descricao = dto.Descricao;
+
+            if (dto.Valor.HasValue)
+                transacao.Valor = dto.Valor.Value;
+
+            if (dto.Data.HasValue)
+                transacao.Data = dto.Data.Value;
+
+            transacao.PessoaId = pessoaId;
+            transacao.CategoriaId = categoriaId;
+            transacao.Tipo = tipo;
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task Deletar(int id, CancellationToken cancellationToken = default)
+        {
+            var transacao = await _context.Transacoes
+                .FirstOrDefaultAsync(t => t.Id == id && t.FamiliaId == _currentUser.FamiliaId, cancellationToken);
+
+            if (transacao == null)
+                throw new NotFoundException("Transação não encontrada.");
+
+            _context.Transacoes.Remove(transacao);
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        // Compartilhada por Criar e Atualizar: as duas precisam validar a
+        // mesma combinação final de Pessoa/Categoria/Tipo, só a origem dos
+        // valores (DTO direto vs. mesclado com o que já existia) muda.
+        private static void ValidarRegrasDeNegocio(Pessoa pessoa, Categoria categoria, TipoTransacao tipo)
+        {
+            // REGRA 1
+            if (pessoa.Idade < 18 && tipo == TipoTransacao.Receita)
+                throw new BusinessRuleException("Menores de idade só podem registrar despesas.");
+
+            // REGRA 2
+            if (tipo == TipoTransacao.Receita && categoria.Finalidade == FinalidadeCategoria.Despesa)
+                throw new BusinessRuleException("Categoria incompatível.");
+
+            if (tipo == TipoTransacao.Despesa && categoria.Finalidade == FinalidadeCategoria.Receita)
+                throw new BusinessRuleException("Categoria incompatível.");
         }
     }
 }
