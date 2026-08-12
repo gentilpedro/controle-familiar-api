@@ -8,5 +8,15 @@ namespace ControleFamiliarAPI.Services.Interfaces
         Task<PaginacaoResultado<TransacaoResponseDto>> Listar(int pagina, int tamanhoPagina, CancellationToken cancellationToken = default);
 
         Task Criar(TransacaoCreateDto dto, CancellationToken cancellationToken = default);
+
+        Task CriarParcelada(TransacaoParceladaCreateDto dto, CancellationToken cancellationToken = default);
+
+        Task CriarRecorrenciaPercentual(TransacaoRecorrenciaPercentualCreateDto dto, CancellationToken cancellationToken = default);
+
+        Task Atualizar(int id, TransacaoUpdateDto dto, CancellationToken cancellationToken = default);
+
+        Task MarcarPago(int id, bool pago, CancellationToken cancellationToken = default);
+
+        Task Deletar(int id, bool excluirFuturas = false, CancellationToken cancellationToken = default);
     }
 }

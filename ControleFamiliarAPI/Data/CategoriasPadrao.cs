@@ -16,23 +16,37 @@ namespace ControleFamiliarAPI.Data
     // altera o banco sozinho, é preciso uma migration nova.
     public static class CategoriasPadrao
     {
-        public static readonly IReadOnlyList<(string Descricao, FinalidadeCategoria Finalidade)> Itens =
+        // AceitaDivisaoPercentual só é true pra "Salário" — é o único lugar
+        // do código que nomeia essa categoria por string, porque um seed
+        // precisa declarar seus dados de algum jeito. A regra de negócio em
+        // si (TransacaoService.CriarRecorrenciaPercentual) nunca compara
+        // nome de categoria, só lê esta flag.
+        public static readonly IReadOnlyList<(string Descricao, FinalidadeCategoria Finalidade, bool AceitaDivisaoPercentual)> Itens =
         [
-            ("Salário", FinalidadeCategoria.Receita),
-            ("Renda extra", FinalidadeCategoria.Receita),
+            ("Salário", FinalidadeCategoria.Receita, true),
+            ("Renda extra", FinalidadeCategoria.Receita, false),
 
-            ("Moradia", FinalidadeCategoria.Despesa),
-            ("Água", FinalidadeCategoria.Despesa),
-            ("Luz", FinalidadeCategoria.Despesa),
-            ("Gás", FinalidadeCategoria.Despesa),
-            ("Internet e telefone", FinalidadeCategoria.Despesa),
-            ("Mercado", FinalidadeCategoria.Despesa),
-            ("Transporte", FinalidadeCategoria.Despesa),
-            ("Saúde", FinalidadeCategoria.Despesa),
-            ("Educação", FinalidadeCategoria.Despesa),
-            ("Lazer", FinalidadeCategoria.Despesa),
+            ("Moradia", FinalidadeCategoria.Despesa, false),
+            ("Água", FinalidadeCategoria.Despesa, false),
+            ("Luz", FinalidadeCategoria.Despesa, false),
+            ("Gás", FinalidadeCategoria.Despesa, false),
+            ("Internet e telefone", FinalidadeCategoria.Despesa, false),
+            ("Mercado", FinalidadeCategoria.Despesa, false),
+            ("Transporte", FinalidadeCategoria.Despesa, false),
+            ("Saúde", FinalidadeCategoria.Despesa, false),
+            ("Educação", FinalidadeCategoria.Despesa, false),
+            ("Lazer", FinalidadeCategoria.Despesa, false),
 
-            ("Outros", FinalidadeCategoria.Ambas),
+            ("Outros", FinalidadeCategoria.Ambas, false),
+
+            // Usada só pela transação que o fechamento de mês gera
+            // (PainelMensalService.FecharMes) — o serviço acha esta
+            // categoria comparando Descricao + FamiliaId nulo. É seguro
+            // comparar por nome aqui (diferente do AceitaDivisaoPercentual,
+            // que protege uma escolha exposta ao usuário): é infraestrutura
+            // interna do próprio seed, e o filtro FamiliaId nulo já isola
+            // do catálogo de qualquer família.
+            ("Saldo Anterior", FinalidadeCategoria.Ambas, false),
         ];
 
         /// <summary>
@@ -46,6 +60,7 @@ namespace ControleFamiliarAPI.Data
             {
                 Descricao = item.Descricao,
                 Finalidade = item.Finalidade,
+                AceitaDivisaoPercentual = item.AceitaDivisaoPercentual,
                 FamiliaId = null
             });
     }

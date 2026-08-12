@@ -4,6 +4,7 @@ using ControleFamiliarAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ControleFamiliarAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260812131621_AdicionaSerieNaTransacao")]
+    partial class AdicionaSerieNaTransacao
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -29,11 +32,6 @@ namespace ControleFamiliarAPI.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("AceitaDivisaoPercentual")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
 
                     b.Property<string>("Descricao")
                         .IsRequired()
@@ -80,39 +78,6 @@ namespace ControleFamiliarAPI.Migrations
                         .IsUnique();
 
                     b.ToTable("Familias");
-                });
-
-            modelBuilder.Entity("ControleFamiliarAPI.Models.FechamentoMensal", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("FamiliaId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("FechadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateOnly>("Mes")
-                        .HasColumnType("date");
-
-                    b.Property<decimal>("SaldoTransportado")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int?>("TransacaoGeradaId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TransacaoGeradaId");
-
-                    b.HasIndex("FamiliaId", "Mes")
-                        .IsUnique();
-
-                    b.ToTable("FechamentosMensais");
                 });
 
             modelBuilder.Entity("ControleFamiliarAPI.Models.Pessoa", b =>
@@ -222,11 +187,6 @@ namespace ControleFamiliarAPI.Migrations
 
                     b.Property<int?>("NumeroParcela")
                         .HasColumnType("int");
-
-                    b.Property<bool>("Pago")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
 
                     b.Property<int>("PessoaId")
                         .HasColumnType("int");
@@ -486,24 +446,6 @@ namespace ControleFamiliarAPI.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Familia");
-                });
-
-            modelBuilder.Entity("ControleFamiliarAPI.Models.FechamentoMensal", b =>
-                {
-                    b.HasOne("ControleFamiliarAPI.Models.Familia", "Familia")
-                        .WithMany()
-                        .HasForeignKey("FamiliaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ControleFamiliarAPI.Models.Transacao", "TransacaoGerada")
-                        .WithMany()
-                        .HasForeignKey("TransacaoGeradaId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Familia");
-
-                    b.Navigation("TransacaoGerada");
                 });
 
             modelBuilder.Entity("ControleFamiliarAPI.Models.Pessoa", b =>

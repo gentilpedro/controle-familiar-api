@@ -32,6 +32,45 @@ namespace ControleFamiliarAPI.Models
         public TipoTransacao Tipo { get; set; }
 
         /// <summary>
+        /// Data efetiva da transação. Distinta de "quando foi cadastrada" —
+        /// é o que permite uma parcela de compra parcelada cair em outubro
+        /// mesmo que o parcelamento inteiro tenha sido criado em agosto.
+        /// </summary>
+        [Required]
+        public DateOnly Data { get; set; }
+
+        /// <summary>
+        /// Confirmada — "paga" para Despesa, "recebida" para Receita (mesmo
+        /// campo, rótulo contextual: não são dois booleanos). Transação
+        /// avulsa nasce true por padrão (o comum é registrar algo que já
+        /// aconteceu); ocorrência de série (parcelamento, recorrência
+        /// percentual) nasce sempre false — é uma obrigação futura até o
+        /// usuário confirmar.
+        /// </summary>
+        [Required]
+        public bool Pago { get; set; } = true;
+
+        /// <summary>
+        /// Identifica o grupo de transações nascidas juntas de um
+        /// parcelamento ou de uma divisão percentual (ex.: salário
+        /// quinzenal). Nulo para transação avulsa.
+        /// </summary>
+        public Guid? SerieId { get; set; }
+
+        /// <summary>
+        /// Posição (1-based) desta transação dentro da série. Nulo fora de
+        /// uma série.
+        /// </summary>
+        public int? NumeroParcela { get; set; }
+
+        /// <summary>
+        /// Total de transações que a série tinha ao ser criada. Não é
+        /// recalculado se uma ocorrência for excluída depois — "3/10" pode
+        /// continuar mostrando 10 mesmo com só 8 restantes.
+        /// </summary>
+        public int? TotalParcelas { get; set; }
+
+        /// <summary>
         /// Pessoa relacionada à transação.
         /// </summary>
         [Required]

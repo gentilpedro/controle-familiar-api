@@ -18,6 +18,7 @@ namespace ControleFamiliarAPI.Data
         public DbSet<Usuario> Usuarios => Set<Usuario>();
         public DbSet<TokenRevogado> TokensRevogados => Set<TokenRevogado>();
         public DbSet<RegistroAuditoria> RegistrosAuditoria => Set<RegistroAuditoria>();
+        public DbSet<FechamentoMensal> FechamentosMensais => Set<FechamentoMensal>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -100,6 +101,10 @@ namespace ControleFamiliarAPI.Data
                 entity.Property(c => c.Finalidade)
                       .IsRequired();
 
+                entity.Property(c => c.AceitaDivisaoPercentual)
+                      .IsRequired()
+                      .HasDefaultValue(false);
+
                 // IsRequired(false): categoria do sistema não tem família dona.
                 // Sem isso o EF infere obrigatório e a FK volta a ser NOT NULL.
                 entity.HasOne(c => c.Familia)
@@ -124,6 +129,13 @@ namespace ControleFamiliarAPI.Data
 
                 entity.Property(t => t.Tipo)
                       .IsRequired();
+
+                entity.Property(t => t.Data)
+                      .IsRequired();
+
+                entity.Property(t => t.Pago)
+                      .IsRequired()
+                      .HasDefaultValue(true);
 
                 // Relacionamento: uma Pessoa possui muitas Transacoes
                 entity.HasOne(t => t.Pessoa)
@@ -153,6 +165,18 @@ namespace ControleFamiliarAPI.Data
 
                 entity.HasIndex(t => new { t.PessoaId, t.Tipo })
                       .IncludeProperties(t => new { t.Valor });
+
+                // Cobre a Listar paginada, que filtra por família e ordena
+                // por Data — sem isso o SQL Server ordenaria pela clustered
+                // key (Id) e descartaria a maior parte antes de aplicar
+                // Skip/Take. INCLUDE dos campos escalares devolvidos pela
+                // listagem evita um Key Lookup extra por linha da página.
+                entity.HasIndex(t => new { t.FamiliaId, t.Data })
+                      .IncludeProperties(t => new { t.Valor, t.Tipo, t.CategoriaId, t.PessoaId });
+
+                // Suporta a propagação de PATCH/DELETE "aplicar às futuras":
+                // busca por SerieId com NumeroParcela >= a de uma ocorrência.
+                entity.HasIndex(t => new { t.SerieId, t.NumeroParcela });
             });
 
             // Configuração da entidade TokenRevogado
@@ -178,6 +202,36 @@ namespace ControleFamiliarAPI.Data
 
                 // Consulta mais comum: auditoria de uma família, mais recente primeiro.
                 entity.HasIndex(r => new { r.FamiliaId, r.CriadoEm });
+            });
+
+            // Configuração da entidade FechamentoMensal
+            modelBuilder.Entity<FechamentoMensal>(entity =>
+            {
+                entity.HasKey(f => f.Id);
+
+                entity.Property(f => f.SaldoTransportado)
+                      .IsRequired()
+                      .HasColumnType("decimal(18,2)");
+
+                entity.HasOne(f => f.Familia)
+                      .WithMany()
+                      .HasForeignKey(f => f.FamiliaId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // Restrict, não Cascade: a Transacao de saldo é uma
+                // transação normal (pode ser filtrada, listada, etc.) — não
+                // faz sentido ela sumir se o FechamentoMensal for removido
+                // (o que hoje nem existe como operação, mas o comportamento
+                // de FK já fica correto se um dia existir).
+                entity.HasOne(f => f.TransacaoGerada)
+                      .WithMany()
+                      .HasForeignKey(f => f.TransacaoGeradaId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // Impede fechar o mesmo mês duas vezes a nível de banco, não
+                // só checando na aplicação.
+                entity.HasIndex(f => new { f.FamiliaId, f.Mes })
+                      .IsUnique();
             });
         }
     }

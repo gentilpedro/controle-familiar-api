@@ -116,6 +116,152 @@ cadastro ainda não existe usuário autenticado, é a própria conta se criando.
 derruba o `Registrar` inteiro com `InvalidOperationException: Claim de usuário não encontrada` (foi
 exatamente o que aconteceu ao escrever isso — pegue de exemplo antes de "simplificar" essa chamada).
 
+## Transações recorrentes/parceladas (em construção, desde 2026-08-12)
+
+Bloco grande, em vários PRs sequenciais (plano completo salvo em
+`C:\Users\pedro.rodrigues\.claude\plans\foamy-knitting-lightning.md` no momento em que isso foi
+escrito) — compra parcelada em N meses e salário dividido por percentual em quinzenas. Cada passo
+depende do anterior; ver o plano pra a lista completa e a ordem.
+
+**Passo 1 — `Transacao.Data`** (`AdicionaDataNaTransacao`): antes disso, `Transacao` não tinha campo
+de data nenhum — `Listar` ordenava por `Id` como proxy de "mais recente". Sem data não tem como uma
+parcela cair "em outubro".
+
+- `Data` é `DateOnly`, `NOT NULL`. No `TransacaoCreateDto` é `DateOnly?` (nullable) de propósito —
+  mesma razão de `RegistrarDto.Idade`: em tipo não-anulável, omitir o campo cairia silenciosamente
+  em `0001-01-01` em vez de dar 400.
+- **A migration não teve dado de origem pra copiar** (nunca existiu data antes). Passo em três
+  partes: `AddColumn` nullable → `Sql` preenchendo as linhas existentes com **a data do deploy desta
+  migration** (`2026-08-12`, hardcoded no `Up()`) → `AlterColumn` pra `NOT NULL`. Não é
+  `GETDATE()`/`HasDefaultValueSql` — isso criaria um valor calculado em runtime, ainda mais
+  enganoso que uma data fixa registrada. É um artefato conhecido e documentado, não um bug: dado que
+  nunca foi capturado não tem como ser reconstruído, só marcado honestamente.
+- `Listar` ordena por `Data DESC, Id DESC` (desempate) — não só `Id DESC` como antes. Índice novo
+  `(FamiliaId, Data) INCLUDE (Valor, Tipo, CategoriaId, PessoaId)`, cobridor pra essa consulta; não
+  conflita com os dois índices existentes (`(FamiliaId,Tipo)`/`(PessoaId,Tipo)`), que servem ao
+  `RelatorioService`.
+
+⚠️ **`RelatorioService` continua sem filtro de período** — `Data` existir na transação não implica
+relatório por mês. Decisão de escopo explícita, registrada no plano.
+
+**Passo 2 — `PATCH`/`DELETE /transacoes/{id}`**: até aqui só existia criar e listar transação — a
+lacuna já era antiga, independente da recorrência. `TransacaoUpdateDto` é parcial (mesmo padrão de
+`PessoaUpdateDto`), e a validação (REGRA 1/REGRA 2 de `TransacaoService`) roda sobre o **resultado
+final mesclado**, não só sobre o campo enviado — editar só o `Tipo` ainda checa contra a `Pessoa` e
+a `Categoria` que a transação já tinha, buscadas de novo. Lógica de validação extraída pra
+`ValidarRegrasDeNegocio` (privado, estático), compartilhada por `Criar` e `Atualizar` — mesmo
+arquivo, sem introduzir abstração nova.
+
+Não tem nada de série ainda (`SerieId`) — isso é o Passo 3. O contrato de `PATCH`/`DELETE` **vai
+mudar** nesse passo seguinte (ganha `AplicarAFuturas`/`excluirFuturas`), registrado no plano.
+
+**Passo 3 — parcelamento (`POST /transacoes/parceladas`)**: `Transacao` ganha `SerieId` (`Guid?`),
+`NumeroParcela`/`TotalParcelas` (`int?`) — nulos pra transação avulsa, mesmo valor de `SerieId` em
+todas as transações nascidas juntas de um parcelamento (ou, no Passo 4, de uma divisão percentual).
+`TotalParcelas` **não é recalculado** se uma ocorrência for excluída — "3/10" pode continuar
+mostrando 10 com só 8 restantes, artefato aceito.
+
+- Guid e não um `int` sequencial: um contador central reintroduziria concorrência de escrita (o
+  problema que se está evitando não usando isolamento pesado nas séries), e usar o `Id` da primeira
+  transação como âncora quebra se justamente ela for excluída sozinha (permitido).
+- Divide `ValorTotal` em parcelas iguais (`Math.Round(ValorTotal / N, 2)`), **a última absorve o
+  resíduo** do arredondamento — a soma bate sempre, exatamente. Antes de gerar, valida
+  `Math.Round(ValorTotal / N, 2) > 0`: sem isso, valor baixo dividido em muitas parcelas gera
+  parcela de R$0,00 no meio (achado ao revisar o plano, coberto por
+  `CriarParcelada_ComValorMuitoBaixoParaTantasParcelas_Retorna400`).
+- Cada parcela em `DataPrimeiraParcela.AddMonths(i)`, **sempre a partir da data original, nunca
+  encadeado** (`Data.AddMonths(1).AddMonths(1)...`) — encadear acumularia o efeito de clamping do
+  `AddMonths` em dia 29/30/31 (dia que não existe no mês de destino cai no último dia daquele mês;
+  comportamento nativo do .NET, aceito).
+- `PATCH`/`DELETE` ganharam `AplicarAFuturas`/`excluirFuturas`: propagam a mudança pra
+  `NumeroParcela >= a da ocorrência editada`, na mesma série. **`Data` nunca propaga** — só se edita
+  na ocorrência individual, mesmo com `AplicarAFuturas=true` (propagar mudaria o espaçamento da
+  série). Toda a operação (ocorrência principal + propagadas) roda numa `BeginTransactionAsync`,
+  isolamento padrão (`ReadCommitted`) — não há invariante de sistema em jogo aqui, só atomicidade.
+
+⚠️ **Concorrência aceita, não tratada**: duas edições quase simultâneas na mesma série (mais
+provável via duplo-clique/duas abas do que dois usuários concorrentes de verdade) podem se sobrepor
+sem erro algum, resultado dependendo só da ordem de chegada. Diferente do invariante protegido em
+`FamiliaService.RemoverMembro` (nunca ficar sem admin), aqui não há nada do tipo — decisão registrada
+de propósito, não omissão.
+
+**Passo 4 (final) — salário por percentual (`POST /transacoes/recorrencia-percentual`)**: mesmo
+mecanismo de série do Passo 3 (`SerieId`/`NumeroParcela`/`TotalParcelas`), reaproveitado pra dividir
+um valor total em ocorrências percentuais dentro de um mês — ex.: 35% dia 15, 65% dia 30. Percentuais
+**não precisam somar 100** (confirmado com o usuário: adiantamento e saldo podem vir de bases
+diferentes).
+
+- **`Categoria.AceitaDivisaoPercentual`** (`bool`, default `false`) trava o fluxo — hoje só a
+  categoria de sistema "Salário" tem `true`, marcado em `Data/CategoriasPadrao.cs` (fonte usada por
+  `EnsureCreated` nos testes) **e** via `Sql` na migration `AdicionaDivisaoPercentualNaCategoria`
+  (fonte usada em produção, mesmo padrão de `SeedCategoriasDoSistema`) — os dois lugares precisam
+  ficar sincronizados manualmente, não há automação entre eles. Não é exposto como opção editável
+  pra categoria de família: como categoria de sistema é imutável, isso trava o fluxo com segurança,
+  **sem comparar nome de categoria em runtime em lugar nenhum** — a única string `"Salário"` do
+  código inteiro fica nesses dois pontos de seed, não em `TransacaoService`.
+- `TransacaoRecorrenciaPercentualCreateDto.MesReferencia` é `DateOnly?`, mas só ano/mês importam —
+  o dia é ignorado, cada `OcorrenciaPercentualDto` tem o próprio `Dia`.
+- Dia que não existe no mês de referência (ex.: 31 de fevereiro) **cai no último dia daquele mês** —
+  mesma filosofia de clamping do parcelamento, mas aqui é manual: o construtor de `DateOnly` lança
+  exceção em vez de clampar (diferente de `AddMonths`), então o código calcula
+  `Math.Min(dia, DateTime.DaysInMonth(ano, mes))` antes de montar a data.
+- Tipo é sempre `Receita`, implícito — só uma categoria com `AceitaDivisaoPercentual` libera o
+  fluxo, e ela é de Receita.
+
+**Passo 5 — status Pago/Recebido**: pedido novo, fora do plano original (compartilhamento de uma
+planilha pessoal que motivou este e o próximo passo, "fechamento de mês" — ver plano salvo em
+`C:\Users\pedro.rodrigues\.claude\plans\foamy-knitting-lightning.md`, reescrito pra este pedido).
+`Transacao.Pago` (`bool`, `NOT NULL`, default `true`) — "paga" pra Despesa, "recebida" pra Receita,
+**mesmo campo**, rótulo contextual conforme `Tipo` (não são dois booleanos).
+
+- Migration direta (`AddColumn` com `defaultValue: true`), sem os três passos que `Data` precisou —
+  aqui o backfill é uma leitura razoável do que já existe (tudo que já está no banco é passado), não
+  uma invenção como foi com data.
+- `TransacaoCreateDto.Pago` é `bool?`, mas **não** segue o padrão "omitir vira 400" de `Data`/`Idade`
+  — aqui omitir tem um default sensato (`true`, o comum é registrar algo que já aconteceu), não é
+  um esquecimento perigoso. `TransacaoUpdateDto.Pago` também é opcional, mesma lógica de `Data`:
+  **nunca propaga** com `AplicarAFuturas` (status de pagamento é por ocorrência).
+- `CriarParcelada`/`CriarRecorrenciaPercentual`: toda ocorrência nasce com `Pago = false`, sempre,
+  sem campo exposto nos DTOs — são obrigações futuras até o usuário confirmar, mesmo a primeira
+  parcela (pode ter sido criada hoje mas ainda não paga de fato).
+- **`PATCH /transacoes/{id}/pago`** é um endpoint dedicado, separado do `Atualizar` geral — clique
+  direto na tabela do front, sem abrir o modal de editar inteiro só pra marcar uma caixinha.
+  `TransacaoPagoUpdateDto.Pago` é `bool?` `[Required]`, mesma razão de sempre: em `bool` não-nulo,
+  omitir o campo cairia silenciosamente em `false` (desmarcaria a transação sem avisar).
+
+**Passo 6 (final) — Painel Mensal (`GET`/`POST /api/painel-mensal`)**: saldo do mês (receitas
+confirmadas − despesas confirmadas, pendência não entra na conta) e um "fechamento" manual que
+transporta esse saldo pro mês seguinte como uma transação normal.
+
+- **A recursão resolve sozinha.** O saldo de julho vira uma `Transacao` datada de 01/08 — ao fechar
+  agosto, a soma "receitas confirmadas do mês" já inclui essa transação automaticamente, sem lógica
+  especial pra "saldo do saldo" (coberto por
+  `FecharMes_SaldoTransportadoContaNoFechamentoDoMesSeguinte`).
+- **Nova entidade `FechamentoMensal`**, índice único `(FamiliaId, Mes)` — impede fechar o mesmo mês
+  duas vezes a nível de banco, não só checando na aplicação. `TransacaoGeradaId` é nullable: saldo
+  exatamente zero não gera transação (não faz sentido uma de R$0,00), mas o registro de fechamento
+  existe do mesmo jeito — `MesFechado` no resumo não depende de existir uma transação gerada.
+- **Nova categoria de sistema `"Saldo Anterior"`** (`Finalidade = Ambas`). `PainelMensalService`
+  acha ela **comparando por nome** (`Descricao == "Saldo Anterior" && FamiliaId == null`) — é a
+  única exceção ao princípio "nunca comparar categoria por nome" que `AceitaDivisaoPercentual`
+  estabeleceu, e a exceção é deliberada: aquele flag protege uma **escolha exposta ao usuário**
+  (qual categoria de família libera divisão percentual); aqui é infraestrutura interna do próprio
+  seed — o `FamiliaId == null` já isola do catálogo de qualquer família, e o nome nunca muda porque
+  categoria de sistema é imutável.
+- **A transação gerada é atribuída à `Pessoa` do usuário que fechou o mês** (via `Pessoa.UsuarioId`,
+  o vínculo que existe desde o cadastro). Sem essa `Pessoa` (conta antiga, backfill ainda não
+  rodado), cai pra qualquer pessoa da família — sempre existe ao menos uma.
+- **Não passa pela REGRA 1** (`TransacaoService.ValidarRegrasDeNegocio`, "menor não lança receita")
+  — saldo transportado é contabilidade do sistema, não renda de alguém; bloquear o fechamento porque
+  o titular é menor de idade seria um bug de UX, não uma proteção que faz sentido aqui.
+- `AddMonths` resolve a virada de ano sozinho (dezembro fechado gera a transação em janeiro do ano
+  seguinte, não "mês 13" do mesmo ano) — coberto por `FecharMes_EmDezembro_...`.
+- ⚠️ **Não existe "reabrir" um mês fechado nesta versão** — decisão de escopo explícita. Se um
+  lançamento atrasado entrar no mês depois do fechamento, o saldo transportado fica desatualizado
+  até uma correção manual (editar a transação de saldo, ou lançar um ajuste).
+- `GET /transacoes` **continua sem filtro de período** — o Painel Mensal filtra no cliente (busca
+  até 200 itens e filtra por `Data` localmente). Fora de escopo desta rodada, registrado no plano.
+
 ## Deploy e release
 
 `.github/workflows/deploy-monsterasp.yml` roda em push na `main`: build → test → publish → injeta
