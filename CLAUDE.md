@@ -208,6 +208,27 @@ diferentes).
 - Tipo é sempre `Receita`, implícito — só uma categoria com `AceitaDivisaoPercentual` libera o
   fluxo, e ela é de Receita.
 
+**Passo 5 — status Pago/Recebido**: pedido novo, fora do plano original (compartilhamento de uma
+planilha pessoal que motivou este e o próximo passo, "fechamento de mês" — ver plano salvo em
+`C:\Users\pedro.rodrigues\.claude\plans\foamy-knitting-lightning.md`, reescrito pra este pedido).
+`Transacao.Pago` (`bool`, `NOT NULL`, default `true`) — "paga" pra Despesa, "recebida" pra Receita,
+**mesmo campo**, rótulo contextual conforme `Tipo` (não são dois booleanos).
+
+- Migration direta (`AddColumn` com `defaultValue: true`), sem os três passos que `Data` precisou —
+  aqui o backfill é uma leitura razoável do que já existe (tudo que já está no banco é passado), não
+  uma invenção como foi com data.
+- `TransacaoCreateDto.Pago` é `bool?`, mas **não** segue o padrão "omitir vira 400" de `Data`/`Idade`
+  — aqui omitir tem um default sensato (`true`, o comum é registrar algo que já aconteceu), não é
+  um esquecimento perigoso. `TransacaoUpdateDto.Pago` também é opcional, mesma lógica de `Data`:
+  **nunca propaga** com `AplicarAFuturas` (status de pagamento é por ocorrência).
+- `CriarParcelada`/`CriarRecorrenciaPercentual`: toda ocorrência nasce com `Pago = false`, sempre,
+  sem campo exposto nos DTOs — são obrigações futuras até o usuário confirmar, mesmo a primeira
+  parcela (pode ter sido criada hoje mas ainda não paga de fato).
+- **`PATCH /transacoes/{id}/pago`** é um endpoint dedicado, separado do `Atualizar` geral — clique
+  direto na tabela do front, sem abrir o modal de editar inteiro só pra marcar uma caixinha.
+  `TransacaoPagoUpdateDto.Pago` é `bool?` `[Required]`, mesma razão de sempre: em `bool` não-nulo,
+  omitir o campo cairia silenciosamente em `false` (desmarcaria a transação sem avisar).
+
 ## Deploy e release
 
 `.github/workflows/deploy-monsterasp.yml` roda em push na `main`: build → test → publish → injeta

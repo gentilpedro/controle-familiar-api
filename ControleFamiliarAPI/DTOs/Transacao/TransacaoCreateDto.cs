@@ -24,6 +24,13 @@ namespace ControleFamiliarAPI.DTOs.Transacao
         [Required]
         public DateOnly? Data { get; set; }
 
+        /// <summary>
+        /// Já confirmada (paga/recebida)? Omitir cai em true — diferente de
+        /// Data/Idade, aqui a ausência tem um default sensato (o comum é
+        /// registrar algo que já aconteceu), não é um esquecimento perigoso.
+        /// </summary>
+        public bool? Pago { get; set; }
+
         [Required]
         public int PessoaId { get; set; }
 

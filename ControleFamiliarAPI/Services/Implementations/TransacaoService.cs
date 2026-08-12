@@ -54,6 +54,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Valor = t.Valor,
                     Tipo = t.Tipo,
                     Data = t.Data,
+                    Pago = t.Pago,
                     SerieId = t.SerieId,
                     NumeroParcela = t.NumeroParcela,
                     TotalParcelas = t.TotalParcelas,
@@ -103,6 +104,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 Valor = dto.Valor,
                 Tipo = dto.Tipo,
                 Data = dto.Data!.Value,
+                Pago = dto.Pago ?? true,
                 PessoaId = dto.PessoaId,
                 CategoriaId = dto.CategoriaId,
                 FamiliaId = _currentUser.FamiliaId
@@ -165,6 +167,10 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Data = dto.DataPrimeiraParcela!.Value.AddMonths(i),
                     Valor = i == dto.NumeroParcelas - 1 ? valorUltimaParcela : valorParcela,
                     Tipo = dto.Tipo,
+                    // Sempre false: parcela futura é uma obrigação até o
+                    // usuário confirmar, mesmo a primeira (pode ter sido
+                    // criada hoje mas ainda não paga de fato).
+                    Pago = false,
                     PessoaId = dto.PessoaId,
                     CategoriaId = dto.CategoriaId,
                     FamiliaId = _currentUser.FamiliaId,
@@ -229,6 +235,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Valor = Math.Round(dto.ValorTotal * ocorrencia.Percentual!.Value / 100, 2),
                     Tipo = TipoTransacao.Receita,
                     Data = new DateOnly(mes.Year, mes.Month, diaEfetivo),
+                    Pago = false,
                     PessoaId = dto.PessoaId,
                     CategoriaId = dto.CategoriaId,
                     FamiliaId = _currentUser.FamiliaId,
@@ -280,10 +287,13 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             await using var transacaoDb = await _context.Database.BeginTransactionAsync(cancellationToken);
 
-            // Data só se aplica na transação editada diretamente — nunca
-            // propaga (ver AplicarCampos).
+            // Data e Pago só se aplicam na transação editada diretamente —
+            // nunca propagam (ver AplicarCampos).
             if (dto.Data.HasValue)
                 transacao.Data = dto.Data.Value;
+
+            if (dto.Pago.HasValue)
+                transacao.Pago = dto.Pago.Value;
 
             AplicarCampos(transacao, dto, pessoaId, categoriaId, tipo);
 
@@ -308,6 +318,19 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             await _context.SaveChangesAsync(cancellationToken);
             await transacaoDb.CommitAsync(cancellationToken);
+        }
+
+        public async Task MarcarPago(int id, bool pago, CancellationToken cancellationToken = default)
+        {
+            var transacao = await _context.Transacoes
+                .FirstOrDefaultAsync(t => t.Id == id && t.FamiliaId == _currentUser.FamiliaId, cancellationToken);
+
+            if (transacao == null)
+                throw new NotFoundException("Transação não encontrada.");
+
+            transacao.Pago = pago;
+
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         public async Task Deletar(int id, bool excluirFuturas = false, CancellationToken cancellationToken = default)

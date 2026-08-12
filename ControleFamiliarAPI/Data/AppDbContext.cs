@@ -132,6 +132,10 @@ namespace ControleFamiliarAPI.Data
                 entity.Property(t => t.Data)
                       .IsRequired();
 
+                entity.Property(t => t.Pago)
+                      .IsRequired()
+                      .HasDefaultValue(true);
+
                 // Relacionamento: uma Pessoa possui muitas Transacoes
                 entity.HasOne(t => t.Pessoa)
                       .WithMany(p => p.Transacoes)
