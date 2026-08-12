@@ -8,6 +8,7 @@ namespace ControleFamiliarAPI.DTOs.Transacao
         public string Descricao { get; set; } = string.Empty;
         public decimal Valor { get; set; }
         public TipoTransacao Tipo { get; set; }
+        public DateOnly Data { get; set; }
         public string Pessoa { get; set; } = string.Empty;
         public string Categoria { get; set; } = string.Empty;
     }

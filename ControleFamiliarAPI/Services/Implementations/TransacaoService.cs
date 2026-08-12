@@ -33,9 +33,14 @@ namespace ControleFamiliarAPI.Services.Implementations
             // Sem Include: o Select abaixo já projeta só os campos escalares de
             // Pessoa/Categoria, então o EF Core gera o JOIN sozinho a partir da
             // navegação — Include aqui seria ignorado e só confundiria a leitura.
+            // Data primeiro, Id como desempate: duas transações lançadas no
+            // mesmo dia mantêm a ordem de criação entre si, e uma parcela
+            // futura (Data adiante, criada hoje) aparece na posição
+            // correspondente à data dela, não no topo por ter Id maior.
             var query = _context.Transacoes
                 .Where(t => t.FamiliaId == _currentUser.FamiliaId)
-                .OrderByDescending(t => t.Id);
+                .OrderByDescending(t => t.Data)
+                .ThenByDescending(t => t.Id);
 
             var totalItens = await query.CountAsync(cancellationToken);
 
@@ -48,6 +53,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Descricao = t.Descricao,
                     Valor = t.Valor,
                     Tipo = t.Tipo,
+                    Data = t.Data,
                     Pessoa = t.Pessoa!.Nome,
                     Categoria = t.Categoria!.Descricao
                 })
@@ -102,6 +108,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 Descricao = dto.Descricao,
                 Valor = dto.Valor,
                 Tipo = dto.Tipo,
+                Data = dto.Data!.Value,
                 PessoaId = dto.PessoaId,
                 CategoriaId = dto.CategoriaId,
                 FamiliaId = _currentUser.FamiliaId

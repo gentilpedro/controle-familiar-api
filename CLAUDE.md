@@ -116,6 +116,34 @@ cadastro ainda não existe usuário autenticado, é a própria conta se criando.
 derruba o `Registrar` inteiro com `InvalidOperationException: Claim de usuário não encontrada` (foi
 exatamente o que aconteceu ao escrever isso — pegue de exemplo antes de "simplificar" essa chamada).
 
+## Transações recorrentes/parceladas (em construção, desde 2026-08-12)
+
+Bloco grande, em vários PRs sequenciais (plano completo salvo em
+`C:\Users\pedro.rodrigues\.claude\plans\foamy-knitting-lightning.md` no momento em que isso foi
+escrito) — compra parcelada em N meses e salário dividido por percentual em quinzenas. Cada passo
+depende do anterior; ver o plano pra a lista completa e a ordem.
+
+**Passo 1 — `Transacao.Data`** (`AdicionaDataNaTransacao`): antes disso, `Transacao` não tinha campo
+de data nenhum — `Listar` ordenava por `Id` como proxy de "mais recente". Sem data não tem como uma
+parcela cair "em outubro".
+
+- `Data` é `DateOnly`, `NOT NULL`. No `TransacaoCreateDto` é `DateOnly?` (nullable) de propósito —
+  mesma razão de `RegistrarDto.Idade`: em tipo não-anulável, omitir o campo cairia silenciosamente
+  em `0001-01-01` em vez de dar 400.
+- **A migration não teve dado de origem pra copiar** (nunca existiu data antes). Passo em três
+  partes: `AddColumn` nullable → `Sql` preenchendo as linhas existentes com **a data do deploy desta
+  migration** (`2026-08-12`, hardcoded no `Up()`) → `AlterColumn` pra `NOT NULL`. Não é
+  `GETDATE()`/`HasDefaultValueSql` — isso criaria um valor calculado em runtime, ainda mais
+  enganoso que uma data fixa registrada. É um artefato conhecido e documentado, não um bug: dado que
+  nunca foi capturado não tem como ser reconstruído, só marcado honestamente.
+- `Listar` ordena por `Data DESC, Id DESC` (desempate) — não só `Id DESC` como antes. Índice novo
+  `(FamiliaId, Data) INCLUDE (Valor, Tipo, CategoriaId, PessoaId)`, cobridor pra essa consulta; não
+  conflita com os dois índices existentes (`(FamiliaId,Tipo)`/`(PessoaId,Tipo)`), que servem ao
+  `RelatorioService`.
+
+⚠️ **`RelatorioService` continua sem filtro de período** — `Data` existir na transação não implica
+relatório por mês. Decisão de escopo explícita, registrada no plano.
+
 ## Deploy e release
 
 `.github/workflows/deploy-monsterasp.yml` roda em push na `main`: build → test → publish → injeta

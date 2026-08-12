@@ -125,6 +125,9 @@ namespace ControleFamiliarAPI.Data
                 entity.Property(t => t.Tipo)
                       .IsRequired();
 
+                entity.Property(t => t.Data)
+                      .IsRequired();
+
                 // Relacionamento: uma Pessoa possui muitas Transacoes
                 entity.HasOne(t => t.Pessoa)
                       .WithMany(p => p.Transacoes)
@@ -153,6 +156,14 @@ namespace ControleFamiliarAPI.Data
 
                 entity.HasIndex(t => new { t.PessoaId, t.Tipo })
                       .IncludeProperties(t => new { t.Valor });
+
+                // Cobre a Listar paginada, que filtra por família e ordena
+                // por Data — sem isso o SQL Server ordenaria pela clustered
+                // key (Id) e descartaria a maior parte antes de aplicar
+                // Skip/Take. INCLUDE dos campos escalares devolvidos pela
+                // listagem evita um Key Lookup extra por linha da página.
+                entity.HasIndex(t => new { t.FamiliaId, t.Data })
+                      .IncludeProperties(t => new { t.Valor, t.Tipo, t.CategoriaId, t.PessoaId });
             });
 
             // Configuração da entidade TokenRevogado

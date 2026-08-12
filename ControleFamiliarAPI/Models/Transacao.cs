@@ -32,6 +32,14 @@ namespace ControleFamiliarAPI.Models
         public TipoTransacao Tipo { get; set; }
 
         /// <summary>
+        /// Data efetiva da transação. Distinta de "quando foi cadastrada" —
+        /// é o que permite uma parcela de compra parcelada cair em outubro
+        /// mesmo que o parcelamento inteiro tenha sido criado em agosto.
+        /// </summary>
+        [Required]
+        public DateOnly Data { get; set; }
+
+        /// <summary>
         /// Pessoa relacionada à transação.
         /// </summary>
         [Required]

@@ -145,6 +145,7 @@ public class CategoriasPadraoTests : IntegrationTestBase
                 Descricao = "Compra do mês",
                 Valor = 250,
                 Tipo = TipoTransacao.Despesa,
+                Data = DateOnly.FromDateTime(DateTime.UtcNow),
                 PessoaId = pessoaId,
                 CategoriaId = mercado.Id
             },
