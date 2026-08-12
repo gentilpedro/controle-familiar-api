@@ -1,4 +1,5 @@
 using ControleFamiliarAPI.DTOs.Transacao;
+using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -69,6 +70,39 @@ namespace ControleFamiliarAPI.Controllers
             await _service.Criar(dto, cancellationToken);
 
             return Ok();
+        }
+
+        [HttpPatch("{id}")]
+        [Tags("Transações")]
+        [EndpointSummary("Atualiza uma transação financeira")]
+        [EndpointDescription("""
+            Permite alterar qualquer campo de uma transação já cadastrada.
+            O identificador vai na rota; o corpo só precisa trazer os campos
+            que mudam.
+
+            As mesmas regras de negócio da criação valem aqui, aplicadas ao
+            resultado final — ex.: se só o Tipo mudar, a compatibilidade com
+            a Pessoa e a Categoria que a transação já tinha é checada de
+            novo.
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult> Atualizar(int id, TransacaoUpdateDto dto, CancellationToken cancellationToken)
+        {
+            await _service.Atualizar(id, dto, cancellationToken);
+            return Ok(new ApiResponse<string>("Transação atualizada com sucesso"));
+        }
+
+        [HttpDelete("{id}")]
+        [Tags("Transações")]
+        [EndpointSummary("Remove uma transação financeira")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult> Deletar(int id, CancellationToken cancellationToken)
+        {
+            await _service.Deletar(id, cancellationToken);
+            return Ok(new ApiResponse<string>("Transação removida com sucesso"));
         }
     }
 }

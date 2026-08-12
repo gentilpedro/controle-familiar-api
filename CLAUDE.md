@@ -144,6 +144,17 @@ parcela cair "em outubro".
 ⚠️ **`RelatorioService` continua sem filtro de período** — `Data` existir na transação não implica
 relatório por mês. Decisão de escopo explícita, registrada no plano.
 
+**Passo 2 — `PATCH`/`DELETE /transacoes/{id}`**: até aqui só existia criar e listar transação — a
+lacuna já era antiga, independente da recorrência. `TransacaoUpdateDto` é parcial (mesmo padrão de
+`PessoaUpdateDto`), e a validação (REGRA 1/REGRA 2 de `TransacaoService`) roda sobre o **resultado
+final mesclado**, não só sobre o campo enviado — editar só o `Tipo` ainda checa contra a `Pessoa` e
+a `Categoria` que a transação já tinha, buscadas de novo. Lógica de validação extraída pra
+`ValidarRegrasDeNegocio` (privado, estático), compartilhada por `Criar` e `Atualizar` — mesmo
+arquivo, sem introduzir abstração nova.
+
+Não tem nada de série ainda (`SerieId`) — isso é o Passo 3. O contrato de `PATCH`/`DELETE` **vai
+mudar** nesse passo seguinte (ganha `AplicarAFuturas`/`excluirFuturas`), registrado no plano.
+
 ## Deploy e release
 
 `.github/workflows/deploy-monsterasp.yml` roda em push na `main`: build → test → publish → injeta
