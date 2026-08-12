@@ -58,7 +58,9 @@ namespace ControleFamiliarAPI.Services.Implementations
                     NumeroParcela = t.NumeroParcela,
                     TotalParcelas = t.TotalParcelas,
                     Pessoa = t.Pessoa!.Nome,
-                    Categoria = t.Categoria!.Descricao
+                    Categoria = t.Categoria!.Descricao,
+                    PessoaId = t.PessoaId,
+                    CategoriaId = t.CategoriaId
                 })
                 .ToListAsync(cancellationToken);
 
