@@ -227,6 +227,14 @@ public class TransacoesTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    private async Task<int> BuscarCategoriaSalarioIdAsync()
+    {
+        var categorias = await (await Client.GetAsync("/api/categorias"))
+            .Content.ReadFromJsonAsync<List<CategoriaResponseDto>>(AuthTestHelper.JsonOptions);
+
+        return categorias!.Single(c => c.Descricao == "Salário").Id;
+    }
+
     private async Task<List<TransacaoResponseDto>> ListarTodasAsync()
     {
         var pagina = await (await Client.GetAsync("/api/transacoes?pagina=1&tamanhoPagina=200"))
@@ -465,5 +473,161 @@ public class TransacoesTests : IntegrationTestBase
 
         Assert.Equal(2, restantes.Count); // só as parcelas 1 e 2 sobram
         Assert.All(restantes, t => Assert.True(t.NumeroParcela < 3));
+    }
+
+    [Fact]
+    public async Task CriarRecorrenciaPercentual_ComCategoriaSalario_CriaOcorrenciasComMesmaSerie()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, _) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+        var salarioId = await BuscarCategoriaSalarioIdAsync();
+
+        var dto = new TransacaoRecorrenciaPercentualCreateDto
+        {
+            Descricao = "Salário quinzenal",
+            ValorTotal = 1000,
+            MesReferencia = new DateOnly(2026, 8, 1),
+            Ocorrencias =
+            [
+                new OcorrenciaPercentualDto { Dia = 15, Percentual = 35 },
+                new OcorrenciaPercentualDto { Dia = 30, Percentual = 65 }
+            ],
+            PessoaId = pessoaId,
+            CategoriaId = salarioId
+        };
+        var response = await Client.PostAsJsonAsync("/api/transacoes/recorrencia-percentual", dto, AuthTestHelper.JsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var ocorrencias = (await ListarTodasAsync())
+            .Where(t => t.Descricao == "Salário quinzenal")
+            .OrderBy(t => t.NumeroParcela)
+            .ToList();
+
+        Assert.Equal(2, ocorrencias.Count);
+        Assert.Equal(ocorrencias[0].SerieId, ocorrencias[1].SerieId);
+        Assert.NotNull(ocorrencias[0].SerieId);
+        Assert.All(ocorrencias, o => Assert.Equal(TipoTransacao.Receita, o.Tipo));
+        Assert.Equal(350m, ocorrencias[0].Valor);
+        Assert.Equal(new DateOnly(2026, 8, 15), ocorrencias[0].Data);
+        Assert.Equal(650m, ocorrencias[1].Valor);
+        Assert.Equal(new DateOnly(2026, 8, 30), ocorrencias[1].Data);
+    }
+
+    /// <summary>
+    /// Percentuais não precisam somar 100 — adiantamento e saldo podem vir
+    /// de bases diferentes. 35% + 75% = 110%, e isso é esperado.
+    /// </summary>
+    [Fact]
+    public async Task CriarRecorrenciaPercentual_ComPercentuaisQueNaoSomam100_FuncionaMesmoAssim()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, _) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+        var salarioId = await BuscarCategoriaSalarioIdAsync();
+
+        var dto = new TransacaoRecorrenciaPercentualCreateDto
+        {
+            Descricao = "Salário com adiantamento",
+            ValorTotal = 1000,
+            MesReferencia = new DateOnly(2026, 9, 1),
+            Ocorrencias =
+            [
+                new OcorrenciaPercentualDto { Dia = 15, Percentual = 35 },
+                new OcorrenciaPercentualDto { Dia = 30, Percentual = 75 }
+            ],
+            PessoaId = pessoaId,
+            CategoriaId = salarioId
+        };
+        var response = await Client.PostAsJsonAsync("/api/transacoes/recorrencia-percentual", dto, AuthTestHelper.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CriarRecorrenciaPercentual_ComCategoriaQueNaoAceitaDivisaoPercentual_Retorna400()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Receita);
+
+        var dto = new TransacaoRecorrenciaPercentualCreateDto
+        {
+            Descricao = "Freela",
+            ValorTotal = 500,
+            MesReferencia = new DateOnly(2026, 8, 1),
+            Ocorrencias =
+            [
+                new OcorrenciaPercentualDto { Dia = 10, Percentual = 50 },
+                new OcorrenciaPercentualDto { Dia = 20, Percentual = 50 }
+            ],
+            PessoaId = pessoaId,
+            CategoriaId = categoriaId
+        };
+        var response = await Client.PostAsJsonAsync("/api/transacoes/recorrencia-percentual", dto, AuthTestHelper.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CriarRecorrenciaPercentual_ComUmaSoOcorrencia_Retorna400()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, _) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+        var salarioId = await BuscarCategoriaSalarioIdAsync();
+
+        var dto = new TransacaoRecorrenciaPercentualCreateDto
+        {
+            Descricao = "Salário integral",
+            ValorTotal = 1000,
+            MesReferencia = new DateOnly(2026, 8, 1),
+            Ocorrencias = [new OcorrenciaPercentualDto { Dia = 30, Percentual = 100 }],
+            PessoaId = pessoaId,
+            CategoriaId = salarioId
+        };
+        var response = await Client.PostAsJsonAsync("/api/transacoes/recorrencia-percentual", dto, AuthTestHelper.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Dia 31 em fevereiro não existe — cai no último dia do mês, mesma
+    /// filosofia do AddMonths no parcelamento.
+    /// </summary>
+    [Fact]
+    public async Task CriarRecorrenciaPercentual_ComDiaQueNaoExisteNoMes_CaiNoUltimoDiaDoMes()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, _) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+        var salarioId = await BuscarCategoriaSalarioIdAsync();
+
+        var dto = new TransacaoRecorrenciaPercentualCreateDto
+        {
+            Descricao = "Salário fevereiro",
+            ValorTotal = 1000,
+            MesReferencia = new DateOnly(2026, 2, 1), // 2026 não é bissexto -> fevereiro tem 28 dias
+            Ocorrencias =
+            [
+                new OcorrenciaPercentualDto { Dia = 15, Percentual = 35 },
+                new OcorrenciaPercentualDto { Dia = 31, Percentual = 65 }
+            ],
+            PessoaId = pessoaId,
+            CategoriaId = salarioId
+        };
+        (await Client.PostAsJsonAsync("/api/transacoes/recorrencia-percentual", dto, AuthTestHelper.JsonOptions)).EnsureSuccessStatusCode();
+
+        var ocorrencias = (await ListarTodasAsync())
+            .Where(t => t.Descricao == "Salário fevereiro")
+            .OrderBy(t => t.NumeroParcela)
+            .ToList();
+
+        Assert.Equal(new DateOnly(2026, 2, 28), ocorrencias[1].Data);
     }
 }

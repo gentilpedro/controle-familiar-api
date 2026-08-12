@@ -16,5 +16,12 @@ namespace ControleFamiliarAPI.DTOs.Categoria
         /// ações que a API vai recusar com 403.
         /// </summary>
         public bool EhDoSistema { get; set; }
+
+        /// <summary>
+        /// Libera o fluxo de transação recorrente por percentual (salário
+        /// dividido em quinzenas). Hoje só a categoria de sistema "Salário"
+        /// tem isso.
+        /// </summary>
+        public bool AceitaDivisaoPercentual { get; set; }
     }
 }

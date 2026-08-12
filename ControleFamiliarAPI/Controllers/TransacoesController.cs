@@ -99,6 +99,34 @@ namespace ControleFamiliarAPI.Controllers
             return Ok();
         }
 
+        [HttpPost("recorrencia-percentual")]
+        [Tags("Transações")]
+        [EndpointSummary("Divide um valor total em ocorrências percentuais dentro de um mês")]
+        [EndpointDescription("""
+            Ex.: salário dividido em quinzenas — 35% no dia 15, 75% no fim
+            do mês. As ocorrências nascem ligadas por uma série, mesmo
+            mecanismo do parcelamento (editar/excluir uma delas oferece a
+            opção de aplicar às seguintes).
+
+            Só funciona com uma categoria que tenha AceitaDivisaoPercentual,
+            hoje só a categoria de sistema "Salário" — Tipo é sempre Receita.
+
+            Dados necessários:
+            - Descrição, Valor total
+            - MesReferencia (ano/mês; o dia é ignorado)
+            - Ocorrencias: lista de {Dia, Percentual}, mínimo 2 — não
+              precisam somar 100 entre si
+            - Pessoa, Categoria
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult> CriarRecorrenciaPercentual(TransacaoRecorrenciaPercentualCreateDto dto, CancellationToken cancellationToken)
+        {
+            await _service.CriarRecorrenciaPercentual(dto, cancellationToken);
+
+            return Ok();
+        }
+
         [HttpPatch("{id}")]
         [Tags("Transações")]
         [EndpointSummary("Atualiza uma transação financeira")]
