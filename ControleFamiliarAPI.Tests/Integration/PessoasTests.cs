@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using ControleFamiliarAPI.DTOs.Auth;
 using ControleFamiliarAPI.DTOs.Pessoa;
+using ControleFamiliarAPI.Models.Enums;
 using ControleFamiliarAPI.Responses;
 using ControleFamiliarAPI.Tests.Infrastructure;
 
@@ -8,6 +10,32 @@ namespace ControleFamiliarAPI.Tests.Integration;
 
 public class PessoasTests : IntegrationTestBase
 {
+    /// <summary>
+    /// Registra um segundo usuário como membro comum (não-admin) da mesma
+    /// família do admin passado, autentica o Client com o token dele e
+    /// devolve a resposta de auth — usado pelos testes de bloqueio abaixo.
+    /// </summary>
+    private async Task<AuthResponseDto> EntrarComoMembroComum(AuthResponseDto admin)
+    {
+        var membroDto = new RegistrarDto
+        {
+            Nome = "Membro Comum",
+            Email = $"{Guid.NewGuid():N}@teste.com",
+            Senha = "Senha123",
+            Idade = 30,
+            ModoFamilia = ModoEntradaFamilia.Entrar,
+            CodigoConvite = admin.Familia.CodigoConvite
+        };
+
+        var response = await Client.PostAsJsonAsync("/api/auth/registrar", membroDto, AuthTestHelper.JsonOptions);
+        response.EnsureSuccessStatusCode();
+
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<AuthResponseDto>>(AuthTestHelper.JsonOptions);
+        var membro = envelope!.Data!;
+        Client.ComToken(membro.Token);
+        return membro;
+    }
+
     /// <summary>
     /// Regressão do bug corrigido no Bloco 2: PessoaUpdateDto tinha [Required]
     /// em Nome e Idade, rejeitando com 400 qualquer PATCH que só enviasse um
@@ -101,5 +129,58 @@ public class PessoasTests : IntegrationTestBase
         var deleteResponse = await Client.DeleteAsync($"/api/pessoas/{titular.Id}");
 
         Assert.Equal(HttpStatusCode.BadRequest, deleteResponse.StatusCode);
+    }
+
+    /// <summary>
+    /// Cadastro manual (dependente) passou a ser tarefa do administrador da
+    /// família, no mesmo espírito de promover/remover membro em
+    /// FamiliaService — um membro comum não decide sozinho quem mais existe
+    /// na família.
+    /// </summary>
+    [Fact]
+    public async Task Criar_ComoMembroComum_Retorna403()
+    {
+        var admin = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: $"{Guid.NewGuid():N}@teste.com");
+        await EntrarComoMembroComum(admin);
+
+        var response = await Client.PostAsJsonAsync(
+            "/api/pessoas", new PessoaCreateDto { Nome = "Filho", Idade = 8 }, AuthTestHelper.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Atualizar_ComoMembroComum_Retorna403()
+    {
+        var admin = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: $"{Guid.NewGuid():N}@teste.com");
+        Client.ComToken(admin.Token);
+
+        var criarResponse = await Client.PostAsJsonAsync(
+            "/api/pessoas", new PessoaCreateDto { Nome = "Filho", Idade = 8 }, AuthTestHelper.JsonOptions);
+        var criada = await criarResponse.Content.ReadFromJsonAsync<ApiResponse<PessoaResponseDto>>(AuthTestHelper.JsonOptions);
+
+        await EntrarComoMembroComum(admin);
+
+        var patchResponse = await Client.PatchAsJsonAsync(
+            $"/api/pessoas/{criada!.Data!.Id}", new PessoaUpdateDto { Nome = "Outro Nome" }, AuthTestHelper.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Forbidden, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Deletar_ComoMembroComum_Retorna403()
+    {
+        var admin = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client, email: $"{Guid.NewGuid():N}@teste.com");
+        Client.ComToken(admin.Token);
+
+        var criarResponse = await Client.PostAsJsonAsync(
+            "/api/pessoas", new PessoaCreateDto { Nome = "Filho", Idade = 8 }, AuthTestHelper.JsonOptions);
+        var criada = await criarResponse.Content.ReadFromJsonAsync<ApiResponse<PessoaResponseDto>>(AuthTestHelper.JsonOptions);
+
+        await EntrarComoMembroComum(admin);
+
+        var deleteResponse = await Client.DeleteAsync($"/api/pessoas/{criada!.Data!.Id}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, deleteResponse.StatusCode);
     }
 }

@@ -44,6 +44,7 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Cria uma nova pessoa")]
         [EndpointDescription("""
             Registra uma nova pessoa que poderá realizar transações financeiras.
+            Apenas administradores da família podem cadastrar pessoas.
 
             Dados necessários:
             - Nome (máximo de 200 caracteres)
@@ -56,6 +57,7 @@ namespace ControleFamiliarAPI.Controllers
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<ActionResult> Criar(PessoaCreateDto dto, CancellationToken cancellationToken)
         {
             var pessoa = await _service.Criar(dto, cancellationToken);
@@ -68,8 +70,10 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointDescription("""
             Permite alterar o nome ou idade de uma pessoa já cadastrada.
             O identificador da pessoa deve ser informado na rota.
+            Apenas administradores da família podem editar pessoas.
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult> Atualizar(int id, PessoaUpdateDto dto, CancellationToken cancellationToken)
         {
@@ -82,12 +86,17 @@ namespace ControleFamiliarAPI.Controllers
         [EndpointSummary("Remove uma pessoa do sistema")]
         [EndpointDescription("""
             Remove uma pessoa cadastrada através do seu identificador.
+            Apenas administradores da família podem remover pessoas.
 
             Importante:
             - Todas as transações associadas a essa pessoa
               serão removidas automaticamente do sistema
+            - Pessoa vinculada a um membro da família não pode ser removida
+              por aqui — remova o membro em Minha Família
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult> Deletar(int id, CancellationToken cancellationToken)
         {
