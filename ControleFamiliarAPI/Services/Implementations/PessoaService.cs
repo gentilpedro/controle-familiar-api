@@ -3,6 +3,7 @@ using ControleFamiliarAPI.Exceptions;
 using ControleFamiliarAPI.Services.Interfaces;
 using ControleFamiliarAPI.Data;
 using ControleFamiliarAPI.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace ControleFamiliarAPI.Services.Implementations
@@ -11,11 +12,25 @@ namespace ControleFamiliarAPI.Services.Implementations
     {
         private readonly AppDbContext _context;
         private readonly ICurrentUserService _currentUser;
+        private readonly UserManager<Usuario> _userManager;
 
-        public PessoaService(AppDbContext context, ICurrentUserService currentUser)
+        public PessoaService(AppDbContext context, ICurrentUserService currentUser, UserManager<Usuario> userManager)
         {
             _context = context;
             _currentUser = currentUser;
+            _userManager = userManager;
+        }
+
+        // Mesmo padrão de FamiliaService.GarantirAdmin — não existe um lugar
+        // compartilhado pra essa checagem ainda, e duplicar um método de 6
+        // linhas é mais simples que introduzir uma abstração nova pra isso.
+        private async Task GarantirAdmin()
+        {
+            var usuario = await _userManager.FindByIdAsync(_currentUser.UsuarioId.ToString())
+                ?? throw new UnauthorizedException("Usuário não encontrado.");
+
+            if (!usuario.EhAdministrador)
+                throw new ForbiddenException("Apenas administradores da família podem gerenciar pessoas.");
         }
 
         public async Task<List<PessoaResponseDto>> Listar(CancellationToken cancellationToken = default)
@@ -34,6 +49,11 @@ namespace ControleFamiliarAPI.Services.Implementations
 
         public async Task<PessoaResponseDto> Criar(PessoaCreateDto dto, CancellationToken cancellationToken = default)
         {
+            // Toda Pessoa criada por aqui é cadastro manual (dependente sem
+            // login) — a de um membro nasce no Registrar. É o administrador
+            // quem passou a gerenciar o cadastro manual da família.
+            await GarantirAdmin();
+
             var pessoa = new Pessoa
             {
                 Nome = dto.Nome,
@@ -58,6 +78,8 @@ namespace ControleFamiliarAPI.Services.Implementations
 
         public async Task Atualizar(int id, PessoaUpdateDto dto, CancellationToken cancellationToken = default)
         {
+            await GarantirAdmin();
+
             var pessoa = await _context.Pessoas
                 .FirstOrDefaultAsync(p => p.Id == id && p.FamiliaId == _currentUser.FamiliaId, cancellationToken);
 
@@ -75,6 +97,8 @@ namespace ControleFamiliarAPI.Services.Implementations
 
         public async Task Deletar(int id, CancellationToken cancellationToken = default)
         {
+            await GarantirAdmin();
+
             var pessoa = await _context.Pessoas
                 .FirstOrDefaultAsync(p => p.Id == id && p.FamiliaId == _currentUser.FamiliaId, cancellationToken);
 

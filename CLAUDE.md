@@ -61,6 +61,11 @@ Desde 2026-08, `Pessoa.UsuarioId` (nullable) liga uma pessoa à conta que ela re
   marcar quem é membro e não oferecer exclusão.
 - **`PessoaService.Deletar` recusa pessoa vinculada** — excluí-la deixaria um membro ativo sem
   ninguém para lançar despesa. Ela só sai junto com a conta.
+- **Criar/editar/excluir pessoa (sempre cadastro manual, já que a de um membro nasce no `Registrar`)
+  exige `EhAdministrador`** (2026-08-12) — mesmo padrão de `FamiliaService.GarantirAdmin`, duplicado
+  em `PessoaService` porque ainda não existe um lugar compartilhado pra essa checagem. `GET
+  /api/pessoas` continua aberto a qualquer membro (precisa disso pra preencher o select de pessoa ao
+  lançar uma transação).
 - A FK é **`SetNull`, não `Cascade`**: quando a conta some, as transações continuam valendo para a
   família e a pessoa só vira cadastro comum. Cascade levaria junto histórico que é dos outros.
 - `FamiliaService.RemoverMembro` solta o vínculo da pessoa antiga (que fica na família de origem, com
