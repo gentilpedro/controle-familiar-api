@@ -53,6 +53,7 @@ public class FamiliaTests : IntegrationTestBase
             Nome = "Membro Comum",
             Email = $"{Guid.NewGuid():N}@teste.com",
             Senha = "Senha123",
+            Idade = 30,
             ModoFamilia = ModoEntradaFamilia.Entrar,
             CodigoConvite = admin.Familia.CodigoConvite
         };

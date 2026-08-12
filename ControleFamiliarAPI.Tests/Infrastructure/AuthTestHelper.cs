@@ -27,6 +27,7 @@ public static class AuthTestHelper
             Nome = nome ?? "Usuário Teste",
             Email = email ?? $"{Guid.NewGuid():N}@teste.com",
             Senha = senha,
+            Idade = idade,
             ModoFamilia = ModoEntradaFamilia.Nova,
             NomeFamilia = "Família Teste"
         };
