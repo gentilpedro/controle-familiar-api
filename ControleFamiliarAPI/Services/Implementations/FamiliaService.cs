@@ -107,7 +107,7 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            await _auditoria.Registrar("RemocaoMembro", usuarioId, cancellationToken);
+            await _auditoria.Registrar("RemocaoMembro", usuarioId, nomeAlvo: membro.Nome, cancellationToken: cancellationToken);
 
             await transacao.CommitAsync(cancellationToken);
 
@@ -122,7 +122,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             membro.EhAdministrador = true;
             await _userManager.UpdateAsync(membro);
 
-            await _auditoria.Registrar("PromocaoAdmin", usuarioId, cancellationToken);
+            await _auditoria.Registrar("PromocaoAdmin", usuarioId, nomeAlvo: membro.Nome, cancellationToken: cancellationToken);
 
             return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual(cancellationToken), cancellationToken);
         }
@@ -154,7 +154,13 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (linhasAfetadas == 0)
                 throw new BusinessRuleException("A família precisa ter pelo menos um administrador.");
 
-            await _auditoria.Registrar("RebaixamentoAdmin", usuarioId, cancellationToken);
+            // Sem nomeAlvo aqui: a checagem acima é um ExecuteUpdateAsync direto
+            // (update condicional atômico), sem carregar a entidade do membro —
+            // buscar só pra popular o log adicionaria uma ida ao banco a mais
+            // numa ação que, diferente de RemocaoMembro/EntradaFamilia, não
+            // entra no histórico curado (Relatório Familiar mostra só quem
+            // entrou/saiu, não promoção de admin).
+            await _auditoria.Registrar("RebaixamentoAdmin", usuarioId, cancellationToken: cancellationToken);
 
             return await _familiaDtoFactory.MontarFamiliaDto(await BuscarFamiliaAtual(cancellationToken), cancellationToken);
         }
@@ -180,6 +186,27 @@ namespace ControleFamiliarAPI.Services.Implementations
             var familia = await BuscarFamiliaAtual(cancellationToken);
 
             await _emailService.EnviarConviteFamilia(email.Trim(), familia.Nome, familia.CodigoConvite, admin.Nome, cancellationToken);
+        }
+
+        private static readonly string[] AcoesDoHistorico =
+            ["CriacaoFamilia", "EntradaFamilia", "RemocaoMembro", "ExclusaoConta"];
+
+        public async Task<List<HistoricoFamiliaItemDto>> ObterHistorico(CancellationToken cancellationToken = default)
+        {
+            // Recorte de RegistroAuditoria, não a trilha completa: aberto a
+            // qualquer membro (não só admin), então só entram as ações que
+            // contam a história de quem esteve na família — promoção e
+            // rebaixamento de admin ficam de fora.
+            return await _context.RegistrosAuditoria
+                .Where(r => r.FamiliaId == _currentUser.FamiliaId && AcoesDoHistorico.Contains(r.Acao))
+                .OrderByDescending(r => r.CriadoEm)
+                .Select(r => new HistoricoFamiliaItemDto
+                {
+                    Acao = r.Acao,
+                    NomeAlvo = r.NomeAlvo,
+                    CriadoEm = r.CriadoEm
+                })
+                .ToListAsync(cancellationToken);
         }
 
         // UserManager não expõe overloads com CancellationToken — os métodos

@@ -15,13 +15,14 @@ namespace ControleFamiliarAPI.Services.Implementations
             _currentUser = currentUser;
         }
 
-        public async Task Registrar(string acao, int? usuarioAlvoId = null, CancellationToken cancellationToken = default)
+        public async Task Registrar(string acao, int? usuarioAlvoId = null, string? nomeAlvo = null, CancellationToken cancellationToken = default)
         {
             _context.RegistrosAuditoria.Add(new RegistroAuditoria
             {
                 UsuarioId = _currentUser.UsuarioId,
                 FamiliaId = _currentUser.FamiliaId,
                 UsuarioAlvoId = usuarioAlvoId,
+                NomeAlvo = nomeAlvo,
                 Acao = acao
             });
 

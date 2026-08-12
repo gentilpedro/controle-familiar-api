@@ -103,6 +103,25 @@ namespace ControleFamiliarAPI.Services.Implementations
                 UsuarioId = usuario.Id
             });
 
+            // Alimenta o histórico da família (Relatório Familiar no front):
+            // quem criou a família e quem entrou depois, com o nome de cada
+            // um no momento — não uma referência viva, pelo mesmo motivo de
+            // RegistroAuditoria não ter FK.
+            //
+            // Direto no _context, não via _auditoria: o contrato de
+            // IAuditoriaService tira UsuarioId/FamiliaId de ICurrentUserService
+            // (claims do JWT da requisição atual), e aqui não existe usuário
+            // autenticado ainda — é a própria conta se cadastrando. Usar
+            // _auditoria neste ponto derrubava o Registrar inteiro com
+            // "Claim de usuário não encontrada".
+            _context.RegistrosAuditoria.Add(new RegistroAuditoria
+            {
+                UsuarioId = usuario.Id,
+                FamiliaId = familia.Id,
+                NomeAlvo = usuario.Nome,
+                Acao = criandoFamiliaNova ? "CriacaoFamilia" : "EntradaFamilia"
+            });
+
             await _context.SaveChangesAsync(cancellationToken);
 
             await transacao.CommitAsync(cancellationToken);
@@ -225,7 +244,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 await _context.Pessoas.Where(p => p.FamiliaId == familiaId).ExecuteDeleteAsync(cancellationToken);
                 await _context.Categorias.Where(c => c.FamiliaId == familiaId).ExecuteDeleteAsync(cancellationToken);
 
-                await _auditoria.Registrar("ExclusaoConta", cancellationToken: cancellationToken);
+                await _auditoria.Registrar("ExclusaoConta", nomeAlvo: usuario.Nome, cancellationToken: cancellationToken);
                 await RevogarTokenAtual(cancellationToken);
 
                 var resultadoExclusao = await _userManager.DeleteAsync(usuario);
@@ -247,7 +266,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 throw new BusinessRuleException(
                     "Você é o único administrador desta família. Promova outro membro a administrador antes de excluir sua conta.");
 
-            await _auditoria.Registrar("ExclusaoConta", cancellationToken: cancellationToken);
+            await _auditoria.Registrar("ExclusaoConta", nomeAlvo: usuario.Nome, cancellationToken: cancellationToken);
             await RevogarTokenAtual(cancellationToken);
 
             var resultado = await _userManager.DeleteAsync(usuario);
