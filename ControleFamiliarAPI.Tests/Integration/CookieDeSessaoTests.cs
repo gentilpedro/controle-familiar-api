@@ -48,6 +48,7 @@ public class CookieDeSessaoTests : IntegrationTestBase
                 nome = "Novo",
                 email = $"{Guid.NewGuid():N}@teste.com",
                 senha = "Senha123",
+                idade = 30,
                 modoFamilia = "Nova"
             },
             AuthTestHelper.JsonOptions);

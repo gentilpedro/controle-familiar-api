@@ -128,7 +128,7 @@ public class AuthTests : IntegrationTestBase
             Nome = "Usuário Teste",
             Email = $"{Guid.NewGuid():N}@teste.com",
             Senha = "Senha123",
-            ModoFamilia = "Nova",
+            ModoFamilia = ModoEntradaFamilia.Nova,
             NomeFamilia = "Família Teste"
         };
 
@@ -226,8 +226,10 @@ public class AuthTests : IntegrationTestBase
 
         Assert.Equal(auth.Usuario.Email, dados.Usuario.Email);
         Assert.Equal(auth.Familia.CodigoConvite, dados.Familia.CodigoConvite);
-        Assert.Single(dados.Pessoas);
-        Assert.Equal("Filho", dados.Pessoas[0].Nome);
+        // Duas pessoas: a do titular, criada junto com a conta, e o Filho
+        // cadastrado à mão logo acima.
+        Assert.Equal(2, dados.Pessoas.Count);
+        Assert.Contains(dados.Pessoas, p => p.Nome == "Filho");
 
         // A exportação traz só o que é dado do usuário: as categorias criadas
         // pela família. O catálogo do sistema fica de fora de propósito — ele
@@ -284,6 +286,7 @@ public class AuthTests : IntegrationTestBase
             Nome = "Membro Comum",
             Email = $"{Guid.NewGuid():N}@teste.com",
             Senha = "Senha123",
+            Idade = 30,
             ModoFamilia = ModoEntradaFamilia.Entrar,
             CodigoConvite = admin.Familia.CodigoConvite
         };
@@ -312,6 +315,7 @@ public class AuthTests : IntegrationTestBase
             Nome = "Membro Comum",
             Email = $"{Guid.NewGuid():N}@teste.com",
             Senha = "Senha123",
+            Idade = 30,
             ModoFamilia = ModoEntradaFamilia.Entrar,
             CodigoConvite = admin.Familia.CodigoConvite
         };
