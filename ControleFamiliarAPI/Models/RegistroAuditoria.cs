@@ -27,6 +27,17 @@ namespace ControleFamiliarAPI.Models
         /// </summary>
         public int? UsuarioAlvoId { get; set; }
 
+        /// <summary>
+        /// Nome do usuário afetado no momento da ação, denormalizado de
+        /// propósito. UsuarioAlvoId (e mesmo UsuarioId) pode apontar pra uma
+        /// linha que não existe mais — pelo mesmo motivo desta entidade não
+        /// ter FK — então um histórico legível pra humano (ex.: "quem entrou
+        /// e saiu da família") não pode depender de JOIN pra mostrar um nome.
+        /// Nulo nas ações registradas antes desta coluna existir.
+        /// </summary>
+        [MaxLength(200)]
+        public string? NomeAlvo { get; set; }
+
         [Required]
         [MaxLength(50)]
         public string Acao { get; set; } = string.Empty;

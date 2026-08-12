@@ -96,6 +96,26 @@ migration e quais já existiam (ex.: conta criada via `Registrar` entre a migrat
 aplicada em produção). Reverter arriscaria desvincular `Pessoa` legítima — rollback aqui é restaurar
 backup, não `Down()`.
 
+## Histórico da família (Relatório Familiar no front)
+
+`GET /api/familia/historico` é um recorte curado de `RegistroAuditoria` — só `CriacaoFamilia`,
+`EntradaFamilia`, `RemocaoMembro` e `ExclusaoConta` (`FamiliaService.ObterHistorico`,
+`AcoesDoHistorico`). Promoção/rebaixamento de admin também vão pra auditoria, mas ficam de fora: o
+endpoint conta quem esteve na família, não a trilha completa de LGPD. Aberto a qualquer membro, não
+só admin — é análogo à lista de membros que já é visível em Minha Família.
+
+`RegistroAuditoria.NomeAlvo` (2026-08-12) denormaliza o nome de quem o evento é sobre, porque
+`UsuarioId`/`UsuarioAlvoId` podem apontar pra uma linha que não existe mais (o motivo de a entidade
+não ter FK, documentado nela) — sem isso, mostrar "Fulano saiu em [data]" depois de uma
+`ExclusaoConta` exigiria um JOIN que retorna nada.
+
+⚠️ **`CriacaoFamilia`/`EntradaFamilia` são gravados direto no `_context`, não via `IAuditoriaService`,
+dentro de `AuthService.Registrar`.** O contrato de `IAuditoriaService.Registrar` tira `UsuarioId` e
+`FamiliaId` de `ICurrentUserService`, que lê claims do JWT da requisição atual — e no meio do
+cadastro ainda não existe usuário autenticado, é a própria conta se criando. Usar `_auditoria` ali
+derruba o `Registrar` inteiro com `InvalidOperationException: Claim de usuário não encontrada` (foi
+exatamente o que aconteceu ao escrever isso — pegue de exemplo antes de "simplificar" essa chamada).
+
 ## Deploy e release
 
 `.github/workflows/deploy-monsterasp.yml` roda em push na `main`: build → test → publish → injeta

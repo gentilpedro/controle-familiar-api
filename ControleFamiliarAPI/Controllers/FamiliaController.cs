@@ -81,6 +81,21 @@ namespace ControleFamiliarAPI.Controllers
             return Ok(new ApiResponse<FamiliaDto>(await _service.RegenerarCodigoConvite(cancellationToken)));
         }
 
+        [HttpGet("historico")]
+        [Tags("Família")]
+        [EndpointSummary("Histórico de quem entrou e saiu da família")]
+        [EndpointDescription("""
+            Lista os eventos de composição da família — criação, entrada de
+            membro, remoção de membro e exclusão voluntária de conta — do
+            mais recente para o mais antigo. Aberto a qualquer membro, não só
+            administradores.
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<ActionResult> Historico(CancellationToken cancellationToken)
+        {
+            return Ok(new ApiResponse<List<HistoricoFamiliaItemDto>>(await _service.ObterHistorico(cancellationToken)));
+        }
+
         [HttpPost("convidar")]
         [Tags("Família")]
         [EndpointSummary("Envia um convite por e-mail para entrar na família (admin)")]
