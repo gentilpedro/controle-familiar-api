@@ -176,6 +176,70 @@ namespace ControleFamiliarAPI.Services.Implementations
             await transacaoDb.CommitAsync(cancellationToken);
         }
 
+        public async Task CriarRecorrenciaPercentual(TransacaoRecorrenciaPercentualCreateDto dto, CancellationToken cancellationToken = default)
+        {
+            if (dto.ValorTotal <= 0)
+                throw new BusinessRuleException("O valor total deve ser positivo.");
+
+            var pessoa = await _context.Pessoas
+                .FirstOrDefaultAsync(p => p.Id == dto.PessoaId && p.FamiliaId == _currentUser.FamiliaId, cancellationToken);
+
+            if (pessoa == null)
+                throw new NotFoundException("Pessoa não encontrada.");
+
+            var categoria = await _context.Categorias
+                .FirstOrDefaultAsync(
+                    c => c.Id == dto.CategoriaId
+                        && (c.FamiliaId == _currentUser.FamiliaId || c.FamiliaId == null),
+                    cancellationToken);
+
+            if (categoria == null)
+                throw new NotFoundException("Categoria não encontrada.");
+
+            if (!categoria.AceitaDivisaoPercentual)
+                throw new BusinessRuleException("Esta categoria não aceita divisão percentual.");
+
+            // Tipo é sempre Receita: só uma categoria com
+            // AceitaDivisaoPercentual libera este fluxo, e ela é de Receita
+            // (hoje, só "Salário").
+            ValidarRegrasDeNegocio(pessoa, categoria, TipoTransacao.Receita);
+
+            var serieId = Guid.NewGuid();
+            var totalOcorrencias = dto.Ocorrencias.Count;
+            var mes = dto.MesReferencia!.Value;
+            var ultimoDiaDoMes = DateTime.DaysInMonth(mes.Year, mes.Month);
+
+            await using var transacaoDb = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+            for (var i = 0; i < totalOcorrencias; i++)
+            {
+                var ocorrencia = dto.Ocorrencias[i];
+
+                // Dia aceita 1..31 no DTO, mas nem todo mês tem 31 dias — o
+                // construtor de DateOnly lançaria exceção em vez de clampar
+                // (diferente de AddMonths). Mesma filosofia do parcelamento:
+                // dia que não existe no mês cai no último dia dele.
+                var diaEfetivo = Math.Min(ocorrencia.Dia!.Value, ultimoDiaDoMes);
+
+                _context.Transacoes.Add(new Transacao
+                {
+                    Descricao = dto.Descricao,
+                    Valor = Math.Round(dto.ValorTotal * ocorrencia.Percentual!.Value / 100, 2),
+                    Tipo = TipoTransacao.Receita,
+                    Data = new DateOnly(mes.Year, mes.Month, diaEfetivo),
+                    PessoaId = dto.PessoaId,
+                    CategoriaId = dto.CategoriaId,
+                    FamiliaId = _currentUser.FamiliaId,
+                    SerieId = serieId,
+                    NumeroParcela = i + 1,
+                    TotalParcelas = totalOcorrencias
+                });
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await transacaoDb.CommitAsync(cancellationToken);
+        }
+
         public async Task Atualizar(int id, TransacaoUpdateDto dto, CancellationToken cancellationToken = default)
         {
             var transacao = await _context.Transacoes

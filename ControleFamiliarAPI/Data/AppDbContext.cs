@@ -100,6 +100,10 @@ namespace ControleFamiliarAPI.Data
                 entity.Property(c => c.Finalidade)
                       .IsRequired();
 
+                entity.Property(c => c.AceitaDivisaoPercentual)
+                      .IsRequired()
+                      .HasDefaultValue(false);
+
                 // IsRequired(false): categoria do sistema não tem família dona.
                 // Sem isso o EF infere obrigatório e a FK volta a ser NOT NULL.
                 entity.HasOne(c => c.Familia)

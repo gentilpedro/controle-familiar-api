@@ -31,7 +31,8 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Id = c.Id,
                     Descricao = c.Descricao,
                     Finalidade = c.Finalidade,
-                    EhDoSistema = c.FamiliaId == null
+                    EhDoSistema = c.FamiliaId == null,
+                    AceitaDivisaoPercentual = c.AceitaDivisaoPercentual
                 })
                 .ToListAsync(cancellationToken);
         }
@@ -53,7 +54,8 @@ namespace ControleFamiliarAPI.Services.Implementations
                 Id = categoria.Id,
                 Descricao = categoria.Descricao,
                 Finalidade = categoria.Finalidade,
-                EhDoSistema = categoria.EhDoSistema
+                EhDoSistema = categoria.EhDoSistema,
+                AceitaDivisaoPercentual = categoria.AceitaDivisaoPercentual
             };
         }
 
@@ -88,7 +90,8 @@ namespace ControleFamiliarAPI.Services.Implementations
                 Id = categoria.Id,
                 Descricao = categoria.Descricao,
                 Finalidade = categoria.Finalidade,
-                EhDoSistema = categoria.EhDoSistema
+                EhDoSistema = categoria.EhDoSistema,
+                AceitaDivisaoPercentual = categoria.AceitaDivisaoPercentual
             };
         }
 

@@ -41,6 +41,15 @@ namespace ControleFamiliarAPI.Models
         public bool EhDoSistema => FamiliaId is null;
 
         /// <summary>
+        /// Libera o fluxo de transação recorrente por percentual (ex.:
+        /// salário dividido em quinzenas). Não é exposto como opção editável
+        /// pra categoria de família — como categoria de sistema é imutável,
+        /// isso trava o fluxo à categoria "Salário" com segurança, sem
+        /// comparar nome de categoria em lugar nenhum.
+        /// </summary>
+        public bool AceitaDivisaoPercentual { get; set; }
+
+        /// <summary>
         /// Lista de transações vinculadas à categoria.
         /// </summary>
         public List<Transacao> Transacoes { get; set; } = new();

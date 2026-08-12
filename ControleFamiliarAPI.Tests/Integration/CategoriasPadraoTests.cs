@@ -39,12 +39,13 @@ public class CategoriasPadraoTests : IntegrationTestBase
 
         Assert.Equal(CategoriasPadrao.Itens.Count, categorias.Count);
 
-        foreach (var (descricao, finalidade) in CategoriasPadrao.Itens)
+        foreach (var (descricao, finalidade, aceitaDivisaoPercentual) in CategoriasPadrao.Itens)
         {
             var doCatalogo = categorias.SingleOrDefault(c => c.Descricao == descricao);
 
             Assert.NotNull(doCatalogo);
             Assert.Equal(finalidade, doCatalogo!.Finalidade);
+            Assert.Equal(aceitaDivisaoPercentual, doCatalogo.AceitaDivisaoPercentual);
         }
     }
 

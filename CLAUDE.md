@@ -185,6 +185,29 @@ sem erro algum, resultado dependendo só da ordem de chegada. Diferente do invar
 `FamiliaService.RemoverMembro` (nunca ficar sem admin), aqui não há nada do tipo — decisão registrada
 de propósito, não omissão.
 
+**Passo 4 (final) — salário por percentual (`POST /transacoes/recorrencia-percentual`)**: mesmo
+mecanismo de série do Passo 3 (`SerieId`/`NumeroParcela`/`TotalParcelas`), reaproveitado pra dividir
+um valor total em ocorrências percentuais dentro de um mês — ex.: 35% dia 15, 65% dia 30. Percentuais
+**não precisam somar 100** (confirmado com o usuário: adiantamento e saldo podem vir de bases
+diferentes).
+
+- **`Categoria.AceitaDivisaoPercentual`** (`bool`, default `false`) trava o fluxo — hoje só a
+  categoria de sistema "Salário" tem `true`, marcado em `Data/CategoriasPadrao.cs` (fonte usada por
+  `EnsureCreated` nos testes) **e** via `Sql` na migration `AdicionaDivisaoPercentualNaCategoria`
+  (fonte usada em produção, mesmo padrão de `SeedCategoriasDoSistema`) — os dois lugares precisam
+  ficar sincronizados manualmente, não há automação entre eles. Não é exposto como opção editável
+  pra categoria de família: como categoria de sistema é imutável, isso trava o fluxo com segurança,
+  **sem comparar nome de categoria em runtime em lugar nenhum** — a única string `"Salário"` do
+  código inteiro fica nesses dois pontos de seed, não em `TransacaoService`.
+- `TransacaoRecorrenciaPercentualCreateDto.MesReferencia` é `DateOnly?`, mas só ano/mês importam —
+  o dia é ignorado, cada `OcorrenciaPercentualDto` tem o próprio `Dia`.
+- Dia que não existe no mês de referência (ex.: 31 de fevereiro) **cai no último dia daquele mês** —
+  mesma filosofia de clamping do parcelamento, mas aqui é manual: o construtor de `DateOnly` lança
+  exceção em vez de clampar (diferente de `AddMonths`), então o código calcula
+  `Math.Min(dia, DateTime.DaysInMonth(ano, mes))` antes de montar a data.
+- Tipo é sempre `Receita`, implícito — só uma categoria com `AceitaDivisaoPercentual` libera o
+  fluxo, e ela é de Receita.
+
 ## Deploy e release
 
 `.github/workflows/deploy-monsterasp.yml` roda em push na `main`: build → test → publish → injeta

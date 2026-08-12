@@ -11,6 +11,8 @@ namespace ControleFamiliarAPI.Services.Interfaces
 
         Task CriarParcelada(TransacaoParceladaCreateDto dto, CancellationToken cancellationToken = default);
 
+        Task CriarRecorrenciaPercentual(TransacaoRecorrenciaPercentualCreateDto dto, CancellationToken cancellationToken = default);
+
         Task Atualizar(int id, TransacaoUpdateDto dto, CancellationToken cancellationToken = default);
 
         Task Deletar(int id, bool excluirFuturas = false, CancellationToken cancellationToken = default);
