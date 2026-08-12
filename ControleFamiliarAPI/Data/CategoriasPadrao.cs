@@ -38,6 +38,15 @@ namespace ControleFamiliarAPI.Data
             ("Lazer", FinalidadeCategoria.Despesa, false),
 
             ("Outros", FinalidadeCategoria.Ambas, false),
+
+            // Usada só pela transação que o fechamento de mês gera
+            // (PainelMensalService.FecharMes) — o serviço acha esta
+            // categoria comparando Descricao + FamiliaId nulo. É seguro
+            // comparar por nome aqui (diferente do AceitaDivisaoPercentual,
+            // que protege uma escolha exposta ao usuário): é infraestrutura
+            // interna do próprio seed, e o filtro FamiliaId nulo já isola
+            // do catálogo de qualquer família.
+            ("Saldo Anterior", FinalidadeCategoria.Ambas, false),
         ];
 
         /// <summary>
