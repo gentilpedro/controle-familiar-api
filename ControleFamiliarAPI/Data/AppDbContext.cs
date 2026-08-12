@@ -164,6 +164,10 @@ namespace ControleFamiliarAPI.Data
                 // listagem evita um Key Lookup extra por linha da página.
                 entity.HasIndex(t => new { t.FamiliaId, t.Data })
                       .IncludeProperties(t => new { t.Valor, t.Tipo, t.CategoriaId, t.PessoaId });
+
+                // Suporta a propagação de PATCH/DELETE "aplicar às futuras":
+                // busca por SerieId com NumeroParcela >= a de uma ocorrência.
+                entity.HasIndex(t => new { t.SerieId, t.NumeroParcela });
             });
 
             // Configuração da entidade TokenRevogado

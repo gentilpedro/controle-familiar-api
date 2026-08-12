@@ -19,5 +19,13 @@ namespace ControleFamiliarAPI.DTOs.Transacao
         public int? PessoaId { get; set; }
 
         public int? CategoriaId { get; set; }
+
+        /// <summary>
+        /// Quando true e a transação pertence a uma série (parcelamento ou
+        /// divisão percentual), propaga os campos alterados — exceto Data —
+        /// para as ocorrências seguintes da mesma série. Sem efeito numa
+        /// transação avulsa.
+        /// </summary>
+        public bool AplicarAFuturas { get; set; }
     }
 }

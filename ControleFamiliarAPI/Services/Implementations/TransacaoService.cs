@@ -54,6 +54,9 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Valor = t.Valor,
                     Tipo = t.Tipo,
                     Data = t.Data,
+                    SerieId = t.SerieId,
+                    NumeroParcela = t.NumeroParcela,
+                    TotalParcelas = t.TotalParcelas,
                     Pessoa = t.Pessoa!.Nome,
                     Categoria = t.Categoria!.Descricao
                 })
@@ -108,6 +111,71 @@ namespace ControleFamiliarAPI.Services.Implementations
             await _context.SaveChangesAsync(cancellationToken);
         }
 
+        public async Task CriarParcelada(TransacaoParceladaCreateDto dto, CancellationToken cancellationToken = default)
+        {
+            if (dto.ValorTotal <= 0)
+                throw new BusinessRuleException("O valor total deve ser positivo.");
+
+            var pessoa = await _context.Pessoas
+                .FirstOrDefaultAsync(p => p.Id == dto.PessoaId && p.FamiliaId == _currentUser.FamiliaId, cancellationToken);
+
+            if (pessoa == null)
+                throw new NotFoundException("Pessoa não encontrada.");
+
+            var categoria = await _context.Categorias
+                .FirstOrDefaultAsync(
+                    c => c.Id == dto.CategoriaId
+                        && (c.FamiliaId == _currentUser.FamiliaId || c.FamiliaId == null),
+                    cancellationToken);
+
+            if (categoria == null)
+                throw new NotFoundException("Categoria não encontrada.");
+
+            ValidarRegrasDeNegocio(pessoa, categoria, dto.Tipo);
+
+            // Sem isto, um valor total baixo dividido em muitas parcelas gera
+            // parcela de R$0,00 (ex.: R$0,05 em 10x — Round(0.005,2) = 0.00),
+            // e a "última parcela" viraria o total inteiro sozinha, com N-1
+            // parcelas de R$0,00 no meio. Rejeita antes de gerar nada.
+            var valorParcela = Math.Round(dto.ValorTotal / dto.NumeroParcelas, 2);
+            if (valorParcela <= 0)
+                throw new BusinessRuleException("Valor total muito baixo para dividir em tantas parcelas.");
+
+            // A última parcela absorve o resíduo do arredondamento: a soma
+            // das parcelas bate exatamente com ValorTotal, sempre, não
+            // importa quantos centavos sobrarem na divisão.
+            var valorUltimaParcela = dto.ValorTotal - valorParcela * (dto.NumeroParcelas - 1);
+
+            var serieId = Guid.NewGuid();
+
+            await using var transacaoDb = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+            for (var i = 0; i < dto.NumeroParcelas; i++)
+            {
+                _context.Transacoes.Add(new Transacao
+                {
+                    Descricao = dto.Descricao,
+                    // Sempre a partir da data original, nunca encadeado
+                    // (Data.AddMonths(1).AddMonths(1)...) — encadear
+                    // acumularia o efeito de clamping do AddMonths em dia
+                    // 29/30/31 (parcela cairia sempre mais cedo no mês a
+                    // cada mês curto no meio da série).
+                    Data = dto.DataPrimeiraParcela!.Value.AddMonths(i),
+                    Valor = i == dto.NumeroParcelas - 1 ? valorUltimaParcela : valorParcela,
+                    Tipo = dto.Tipo,
+                    PessoaId = dto.PessoaId,
+                    CategoriaId = dto.CategoriaId,
+                    FamiliaId = _currentUser.FamiliaId,
+                    SerieId = serieId,
+                    NumeroParcela = i + 1,
+                    TotalParcelas = dto.NumeroParcelas
+                });
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await transacaoDb.CommitAsync(cancellationToken);
+        }
+
         public async Task Atualizar(int id, TransacaoUpdateDto dto, CancellationToken cancellationToken = default)
         {
             var transacao = await _context.Transacoes
@@ -144,23 +212,39 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             ValidarRegrasDeNegocio(pessoa, categoria, tipo);
 
-            if (!string.IsNullOrEmpty(dto.Descricao))
-                transacao.Descricao = dto.Descricao;
+            await using var transacaoDb = await _context.Database.BeginTransactionAsync(cancellationToken);
 
-            if (dto.Valor.HasValue)
-                transacao.Valor = dto.Valor.Value;
-
+            // Data só se aplica na transação editada diretamente — nunca
+            // propaga (ver AplicarCampos).
             if (dto.Data.HasValue)
                 transacao.Data = dto.Data.Value;
 
-            transacao.PessoaId = pessoaId;
-            transacao.CategoriaId = categoriaId;
-            transacao.Tipo = tipo;
+            AplicarCampos(transacao, dto, pessoaId, categoriaId, tipo);
+
+            // Duas edições quase simultâneas na mesma série (mais provável
+            // via duplo-clique/duas abas do que dois usuários concorrentes)
+            // podem se sobrepor sem erro, resultado dependendo só da ordem
+            // de chegada. Diferente do invariante protegido em
+            // FamiliaService.RemoverMembro (nunca ficar sem admin), aqui não
+            // há invariante de sistema em jogo — aceito por ora, mesmo
+            // padrão "assume uso de família pequena" já usado no projeto.
+            if (dto.AplicarAFuturas && transacao.SerieId != null)
+            {
+                var futuras = await _context.Transacoes
+                    .Where(t => t.SerieId == transacao.SerieId
+                        && t.NumeroParcela >= transacao.NumeroParcela
+                        && t.Id != transacao.Id)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var futura in futuras)
+                    AplicarCampos(futura, dto, pessoaId, categoriaId, tipo);
+            }
 
             await _context.SaveChangesAsync(cancellationToken);
+            await transacaoDb.CommitAsync(cancellationToken);
         }
 
-        public async Task Deletar(int id, CancellationToken cancellationToken = default)
+        public async Task Deletar(int id, bool excluirFuturas = false, CancellationToken cancellationToken = default)
         {
             var transacao = await _context.Transacoes
                 .FirstOrDefaultAsync(t => t.Id == id && t.FamiliaId == _currentUser.FamiliaId, cancellationToken);
@@ -168,14 +252,45 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (transacao == null)
                 throw new NotFoundException("Transação não encontrada.");
 
+            await using var transacaoDb = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+            if (excluirFuturas && transacao.SerieId != null)
+            {
+                var futuras = await _context.Transacoes
+                    .Where(t => t.SerieId == transacao.SerieId
+                        && t.NumeroParcela >= transacao.NumeroParcela
+                        && t.Id != transacao.Id)
+                    .ToListAsync(cancellationToken);
+
+                _context.Transacoes.RemoveRange(futuras);
+            }
+
             _context.Transacoes.Remove(transacao);
 
             await _context.SaveChangesAsync(cancellationToken);
+            await transacaoDb.CommitAsync(cancellationToken);
         }
 
-        // Compartilhada por Criar e Atualizar: as duas precisam validar a
-        // mesma combinação final de Pessoa/Categoria/Tipo, só a origem dos
-        // valores (DTO direto vs. mesclado com o que já existia) muda.
+        // Descrição/Valor/Pessoa/Categoria/Tipo — os campos que fazem
+        // sentido propagar pra ocorrências futuras da mesma série. Data fica
+        // de fora de propósito: propagar mudaria o espaçamento da série.
+        private static void AplicarCampos(Transacao transacao, TransacaoUpdateDto dto, int pessoaId, int categoriaId, TipoTransacao tipo)
+        {
+            if (!string.IsNullOrEmpty(dto.Descricao))
+                transacao.Descricao = dto.Descricao;
+
+            if (dto.Valor.HasValue)
+                transacao.Valor = dto.Valor.Value;
+
+            transacao.PessoaId = pessoaId;
+            transacao.CategoriaId = categoriaId;
+            transacao.Tipo = tipo;
+        }
+
+        // Compartilhada por Criar, CriarParcelada e Atualizar: todas
+        // precisam validar a mesma combinação final de Pessoa/Categoria/Tipo,
+        // só a origem dos valores (DTO direto vs. mesclado com o que já
+        // existia) muda.
         private static void ValidarRegrasDeNegocio(Pessoa pessoa, Categoria categoria, TipoTransacao tipo)
         {
             // REGRA 1

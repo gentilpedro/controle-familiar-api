@@ -155,6 +155,36 @@ arquivo, sem introduzir abstração nova.
 Não tem nada de série ainda (`SerieId`) — isso é o Passo 3. O contrato de `PATCH`/`DELETE` **vai
 mudar** nesse passo seguinte (ganha `AplicarAFuturas`/`excluirFuturas`), registrado no plano.
 
+**Passo 3 — parcelamento (`POST /transacoes/parceladas`)**: `Transacao` ganha `SerieId` (`Guid?`),
+`NumeroParcela`/`TotalParcelas` (`int?`) — nulos pra transação avulsa, mesmo valor de `SerieId` em
+todas as transações nascidas juntas de um parcelamento (ou, no Passo 4, de uma divisão percentual).
+`TotalParcelas` **não é recalculado** se uma ocorrência for excluída — "3/10" pode continuar
+mostrando 10 com só 8 restantes, artefato aceito.
+
+- Guid e não um `int` sequencial: um contador central reintroduziria concorrência de escrita (o
+  problema que se está evitando não usando isolamento pesado nas séries), e usar o `Id` da primeira
+  transação como âncora quebra se justamente ela for excluída sozinha (permitido).
+- Divide `ValorTotal` em parcelas iguais (`Math.Round(ValorTotal / N, 2)`), **a última absorve o
+  resíduo** do arredondamento — a soma bate sempre, exatamente. Antes de gerar, valida
+  `Math.Round(ValorTotal / N, 2) > 0`: sem isso, valor baixo dividido em muitas parcelas gera
+  parcela de R$0,00 no meio (achado ao revisar o plano, coberto por
+  `CriarParcelada_ComValorMuitoBaixoParaTantasParcelas_Retorna400`).
+- Cada parcela em `DataPrimeiraParcela.AddMonths(i)`, **sempre a partir da data original, nunca
+  encadeado** (`Data.AddMonths(1).AddMonths(1)...`) — encadear acumularia o efeito de clamping do
+  `AddMonths` em dia 29/30/31 (dia que não existe no mês de destino cai no último dia daquele mês;
+  comportamento nativo do .NET, aceito).
+- `PATCH`/`DELETE` ganharam `AplicarAFuturas`/`excluirFuturas`: propagam a mudança pra
+  `NumeroParcela >= a da ocorrência editada`, na mesma série. **`Data` nunca propaga** — só se edita
+  na ocorrência individual, mesmo com `AplicarAFuturas=true` (propagar mudaria o espaçamento da
+  série). Toda a operação (ocorrência principal + propagadas) roda numa `BeginTransactionAsync`,
+  isolamento padrão (`ReadCommitted`) — não há invariante de sistema em jogo aqui, só atomicidade.
+
+⚠️ **Concorrência aceita, não tratada**: duas edições quase simultâneas na mesma série (mais
+provável via duplo-clique/duas abas do que dois usuários concorrentes de verdade) podem se sobrepor
+sem erro algum, resultado dependendo só da ordem de chegada. Diferente do invariante protegido em
+`FamiliaService.RemoverMembro` (nunca ficar sem admin), aqui não há nada do tipo — decisão registrada
+de propósito, não omissão.
+
 ## Deploy e release
 
 `.github/workflows/deploy-monsterasp.yml` roda em push na `main`: build → test → publish → injeta
