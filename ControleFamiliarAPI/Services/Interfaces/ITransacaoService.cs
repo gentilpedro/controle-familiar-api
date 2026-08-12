@@ -9,8 +9,10 @@ namespace ControleFamiliarAPI.Services.Interfaces
 
         Task Criar(TransacaoCreateDto dto, CancellationToken cancellationToken = default);
 
+        Task CriarParcelada(TransacaoParceladaCreateDto dto, CancellationToken cancellationToken = default);
+
         Task Atualizar(int id, TransacaoUpdateDto dto, CancellationToken cancellationToken = default);
 
-        Task Deletar(int id, CancellationToken cancellationToken = default);
+        Task Deletar(int id, bool excluirFuturas = false, CancellationToken cancellationToken = default);
     }
 }

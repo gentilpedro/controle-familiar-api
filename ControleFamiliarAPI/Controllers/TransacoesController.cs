@@ -72,6 +72,33 @@ namespace ControleFamiliarAPI.Controllers
             return Ok();
         }
 
+        [HttpPost("parceladas")]
+        [Tags("Transações")]
+        [EndpointSummary("Cria uma compra parcelada em N meses")]
+        [EndpointDescription("""
+            Divide o valor total em parcelas iguais (a última absorve o
+            resíduo do arredondamento, a soma sempre bate com o total) e cria
+            uma transação por parcela, uma por mês a partir da data
+            informada. As parcelas nascem ligadas por uma série — editar ou
+            excluir uma delas oferece a opção de aplicar às seguintes.
+
+            Dados necessários:
+            - Descrição, Valor total, Número de parcelas (2 a 60)
+            - Tipo, Pessoa, Categoria — mesmas regras de negócio da criação
+              avulsa, validadas uma vez pra toda a série
+            - Data da primeira parcela — as demais caem no mesmo dia dos
+              meses seguintes (se o dia não existir em algum mês, cai no
+              último dia daquele mês)
+            """)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult> CriarParcelada(TransacaoParceladaCreateDto dto, CancellationToken cancellationToken)
+        {
+            await _service.CriarParcelada(dto, cancellationToken);
+
+            return Ok();
+        }
+
         [HttpPatch("{id}")]
         [Tags("Transações")]
         [EndpointSummary("Atualiza uma transação financeira")]
@@ -84,6 +111,11 @@ namespace ControleFamiliarAPI.Controllers
             resultado final — ex.: se só o Tipo mudar, a compatibilidade com
             a Pessoa e a Categoria que a transação já tinha é checada de
             novo.
+
+            Quando a transação pertence a uma série (parcelamento ou divisão
+            percentual), AplicarAFuturas=true propaga a mudança — exceto
+            Data — pra todas as ocorrências seguintes da mesma série. Sem
+            efeito numa transação avulsa.
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -97,11 +129,18 @@ namespace ControleFamiliarAPI.Controllers
         [HttpDelete("{id}")]
         [Tags("Transações")]
         [EndpointSummary("Remove uma transação financeira")]
+        [EndpointDescription("""
+            Remove a transação identificada na rota.
+
+            Quando ela pertence a uma série, excluirFuturas=true (query
+            string) remove também todas as ocorrências seguintes da mesma
+            série. Sem efeito numa transação avulsa.
+            """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult> Deletar(int id, CancellationToken cancellationToken)
+        public async Task<ActionResult> Deletar(int id, [FromQuery] bool excluirFuturas, CancellationToken cancellationToken)
         {
-            await _service.Deletar(id, cancellationToken);
+            await _service.Deletar(id, excluirFuturas, cancellationToken);
             return Ok(new ApiResponse<string>("Transação removida com sucesso"));
         }
     }
