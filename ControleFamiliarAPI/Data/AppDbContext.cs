@@ -131,6 +131,15 @@ namespace ControleFamiliarAPI.Data
                       .HasForeignKey(f => f.FamiliaId)
                       .IsRequired(false)
                       .OnDelete(DeleteBehavior.Restrict);
+
+                // Categoria onde o pagamento da fatura é lançado. Restrict:
+                // apagar a categoria não pode desconfigurar o cartão por
+                // baixo dos panos.
+                entity.HasOne(f => f.CategoriaFatura)
+                      .WithMany()
+                      .HasForeignKey(f => f.CategoriaFaturaId)
+                      .IsRequired(false)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Configuração da entidade Transacao

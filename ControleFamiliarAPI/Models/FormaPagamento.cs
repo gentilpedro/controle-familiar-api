@@ -38,6 +38,37 @@ namespace ControleFamiliarAPI.Models
         public bool EhDoSistema => FamiliaId is null;
 
         /// <summary>
+        /// Dia do mês em que a fatura fecha. Nulo quando esta forma não é
+        /// cartão de crédito.
+        /// </summary>
+        // Guardado como dia (1 a 31), não como data: o ciclo se repete todo
+        // mês. Dia que não existe no mês (29/30/31) cai no último dia dele,
+        // mesma filosofia de clamping do parcelamento.
+        public int? DiaFechamento { get; set; }
+
+        /// <summary>
+        /// Dia do mês em que a fatura vence. Nulo quando esta forma não é
+        /// cartão de crédito.
+        /// </summary>
+        public int? DiaVencimento { get; set; }
+
+        /// <summary>
+        /// Categoria em que o pagamento da fatura é lançado (ex.: "Fatura
+        /// Santander"). Só serve para o app reconhecer o pagamento que o
+        /// usuário lança à mão — nada é gerado automaticamente.
+        /// </summary>
+        public int? CategoriaFaturaId { get; set; }
+        public Categoria? CategoriaFatura { get; set; }
+
+        /// <summary>
+        /// Cartão de crédito: tem ciclo de fatura (fechamento e vencimento).
+        /// </summary>
+        // Os dois dias andam juntos — um só não descreve ciclo nenhum, e o
+        // serviço recusa salvar apenas um deles.
+        [NotMapped]
+        public bool EhCartaoCredito => DiaFechamento is not null && DiaVencimento is not null;
+
+        /// <summary>
         /// Lista de transações vinculadas a esta forma de pagamento.
         /// </summary>
         public List<Transacao> Transacoes { get; set; } = new();

@@ -125,6 +125,42 @@ diferentes, por isso entidade nova e não mais uma `FinalidadeCategoria`.
   `AdicionaFormaPagamento` (fonte de produção) — mesmo par de `CategoriasPadrao` /
   `SeedCategoriasDoSistema`, com o mesmo `NOT EXISTS` que torna a migration segura de reexecutar.
 
+## Faturas de cartão (desde 2026-08-13)
+
+Uma forma de pagamento da família vira **cartão de crédito** ao ganhar `DiaFechamento` +
+`DiaVencimento` (`AdicionaCicloDeFaturaNoCartao`). `CategoriaFaturaId` liga o cartão à categoria em
+que o pagamento da fatura é lançado (ex.: "Crédito Santander" → "Fatura Santander").
+
+⚠️ **Não existe entidade `Fatura` e nada é gerado.** `FaturaService` calcula tudo na hora a partir
+das transações; `GET /api/faturas?ano=&mes=` (faturas que **vencem** naquele mês) e
+`GET /api/faturas/abertas` (o ciclo corrente de cada cartão) são os dois únicos endpoints, ambos
+somente leitura. Isso foi decisão explícita do usuário: a fatura **avisa**, não mexe em lançamento —
+não marca transação como paga, não cria despesa de pagamento, não altera o saldo do Painel Mensal.
+O pagamento continua sendo uma transação lançada à mão.
+
+- **É a forma de pagamento que decide, não o banco** (que o app nem conhece): Pix e débito do mesmo
+  banco não entram na fatura porque são outras formas de pagamento
+  (`Fatura_IgnoraLancamentoDeOutraFormaDePagamento`).
+- **Ciclo**: intervalo aberto no início e fechado no fim — compra feita **no** dia do fechamento
+  ainda entra; a do dia seguinte já é da próxima. Vencimento cai no mês do fechamento se o dia for
+  posterior a ele, senão no mês seguinte (o caso comum: fecha 28, vence 10) — as duas configurações
+  saem da mesma conta, sem `if` sobre qual é qual.
+- ⚠️ **`FechamentoAnterior` deriva do trio (ano, mês, dia), nunca de `fechamento.AddMonths(-1)`.**
+  Num cartão que fecha dia 31, o fechamento de fevereiro é 28 e o `AddMonths(-1)` devolveria 28/01 —
+  os dias 29 a 31 de janeiro sumiriam de *todas* as faturas. Coberto por
+  `Fatura_ComFechamentoNoDia31_NaoPerdeOsDiasDoFimDoMesAnterior`.
+- **Estorno** (lançado como Receita no cartão) abate o total, como no extrato de verdade.
+- **`TotalPagamentosLancados`** soma as despesas na categoria vinculada **dentro do mês do
+  vencimento**. Regra escolhida por ser explicável ao usuário; uma janela elástica em torno do
+  vencimento acertaria mais casos e erraria de um jeito impossível de explicar. Nulo sem categoria
+  vinculada — sem ela não há como reconhecer pagamento nenhum.
+- `FormaPagamentoUpdateDto.RemoverCartao` desfaz a configuração (mesma razão de
+  `TransacaoUpdateDto.RemoverFormaPagamento`); a validação do ciclo roda sobre **o resultado final
+  da mesclagem**, então mandar só um dos dias num PATCH dá 400 em vez de gravar meio ciclo.
+- `Fechada` e a lista de abertas dependem de `DateOnly.FromDateTime(DateTime.UtcNow)`. Num fuso
+  atrás de UTC isso adianta a virada do dia em algumas horas — afeta só o rótulo Aberta/Fechada na
+  data exata do fechamento, nenhuma soma.
+
 ## Filtro de período em `GET /transacoes` (desde 2026-08-12)
 
 `?ano=&mes=` recorta a listagem paginada por mês. **Os dois juntos ou nenhum** — `ano` sozinho
@@ -325,7 +361,7 @@ e-mail fica desativado e o código de convite continua funcionando).
 
 ## Testes
 
-`dotnet test` — 114 testes, integração com SQLite em memória via `CustomWebApplicationFactory`.
+`dotnet test` — 132 testes, integração com SQLite em memória via `CustomWebApplicationFactory`.
 Cobrem autenticação, isolamento por família, health check e as regras de negócio das transações.
 
 ⚠️ `CustomWebApplicationFactory.InicializarBancoAsync` insere **os dois catálogos do sistema na
