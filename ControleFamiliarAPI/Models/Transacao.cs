@@ -85,6 +85,15 @@ namespace ControleFamiliarAPI.Models
         public Categoria? Categoria { get; set; }
 
         /// <summary>
+        /// Forma de pagamento usada (Pix, Dinheiro, Saque...). Anulável de
+        /// propósito: o campo nasceu depois das transações que já existiam, e
+        /// nem todo lançamento tem uma forma que o usuário queira registrar —
+        /// exigir uma agora inventaria dado para o histórico inteiro.
+        /// </summary>
+        public int? FormaPagamentoId { get; set; }
+        public FormaPagamento? FormaPagamento { get; set; }
+
+        /// <summary>
         /// Família à qual esta transação pertence (herdada da Pessoa no momento da criação).
         /// </summary>
         [Required]

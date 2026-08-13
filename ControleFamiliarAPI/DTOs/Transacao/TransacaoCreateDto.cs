@@ -36,5 +36,12 @@ namespace ControleFamiliarAPI.DTOs.Transacao
 
         [Required]
         public int CategoriaId { get; set; }
+
+        /// <summary>
+        /// Forma de pagamento usada (Pix, Dinheiro, Saque...). Opcional: nem
+        /// todo lançamento tem uma que o usuário queira registrar, e as
+        /// transações que existiam antes deste campo não têm nenhuma.
+        /// </summary>
+        public int? FormaPagamentoId { get; set; }
     }
 }

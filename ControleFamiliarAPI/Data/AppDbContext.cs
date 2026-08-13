@@ -14,6 +14,7 @@ namespace ControleFamiliarAPI.Data
         public DbSet<Familia> Familias => Set<Familia>();
         public DbSet<Pessoa> Pessoas => Set<Pessoa>();
         public DbSet<Categoria> Categorias => Set<Categoria>();
+        public DbSet<FormaPagamento> FormasPagamento => Set<FormaPagamento>();
         public DbSet<Transacao> Transacoes => Set<Transacao>();
         public DbSet<Usuario> Usuarios => Set<Usuario>();
         public DbSet<TokenRevogado> TokensRevogados => Set<TokenRevogado>();
@@ -114,6 +115,24 @@ namespace ControleFamiliarAPI.Data
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
+            // Configuração da entidade FormaPagamento
+            modelBuilder.Entity<FormaPagamento>(entity =>
+            {
+                entity.HasKey(f => f.Id);
+
+                entity.Property(f => f.Descricao)
+                      .IsRequired()
+                      .HasMaxLength(100);
+
+                // IsRequired(false): forma de pagamento do sistema não tem
+                // família dona (mesma razão da Categoria acima).
+                entity.HasOne(f => f.Familia)
+                      .WithMany()
+                      .HasForeignKey(f => f.FamiliaId)
+                      .IsRequired(false)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
             // Configuração da entidade Transacao
             modelBuilder.Entity<Transacao>(entity =>
             {
@@ -147,6 +166,15 @@ namespace ControleFamiliarAPI.Data
                 entity.HasOne(t => t.Categoria)
                       .WithMany(c => c.Transacoes)
                       .HasForeignKey(t => t.CategoriaId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // Relacionamento: uma FormaPagamento possui muitas Transacoes.
+                // Restrict como na Categoria: apagar a forma não pode levar
+                // junto o lançamento que a usou.
+                entity.HasOne(t => t.FormaPagamento)
+                      .WithMany(f => f.Transacoes)
+                      .HasForeignKey(t => t.FormaPagamentoId)
+                      .IsRequired(false)
                       .OnDelete(DeleteBehavior.Restrict);
 
                 // Relacionamento: uma Familia possui muitas Transacoes

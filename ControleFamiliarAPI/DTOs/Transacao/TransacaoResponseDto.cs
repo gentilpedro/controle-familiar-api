@@ -24,7 +24,14 @@ namespace ControleFamiliarAPI.DTOs.Transacao
         public string Pessoa { get; set; } = string.Empty;
         public string Categoria { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Nulo quando a transação não tem forma de pagamento — o campo é
+        /// opcional e as transações anteriores a ele nunca tiveram uma.
+        /// </summary>
+        public string? FormaPagamento { get; set; }
+
         public int PessoaId { get; set; }
         public int CategoriaId { get; set; }
+        public int? FormaPagamentoId { get; set; }
     }
 }
