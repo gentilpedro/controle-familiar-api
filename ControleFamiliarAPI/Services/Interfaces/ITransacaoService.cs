@@ -5,7 +5,12 @@ namespace ControleFamiliarAPI.Services.Interfaces
 {
     public interface ITransacaoService
     {
-        Task<PaginacaoResultado<TransacaoResponseDto>> Listar(int pagina, int tamanhoPagina, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Lista as transações da família, paginadas. O par ano/mes filtra por
+        /// período — os dois juntos ou nenhum (um sem o outro é 400); sem eles,
+        /// a listagem traz o histórico inteiro.
+        /// </summary>
+        Task<PaginacaoResultado<TransacaoResponseDto>> Listar(int pagina, int tamanhoPagina, int? ano = null, int? mes = null, CancellationToken cancellationToken = default);
 
         Task Criar(TransacaoCreateDto dto, CancellationToken cancellationToken = default);
 

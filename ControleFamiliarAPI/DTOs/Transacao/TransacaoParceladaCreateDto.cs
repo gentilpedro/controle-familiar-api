@@ -37,5 +37,11 @@ namespace ControleFamiliarAPI.DTOs.Transacao
 
         [Required]
         public int CategoriaId { get; set; }
+
+        /// <summary>
+        /// Forma de pagamento de todas as parcelas da série. Opcional, mesma
+        /// razão do TransacaoCreateDto.
+        /// </summary>
+        public int? FormaPagamentoId { get; set; }
     }
 }

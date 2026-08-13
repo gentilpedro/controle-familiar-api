@@ -33,15 +33,21 @@ namespace ControleFamiliarAPI.Controllers
             - Tipo (Receita ou Despesa)
             - Pessoa associada
             - Categoria associada
+            - Forma de pagamento (quando informada)
 
             Parâmetros de paginação (query string):
             - pagina (padrão 1)
             - tamanhoPagina (padrão 50, máximo 200)
+
+            Filtro de período (query string, opcional):
+            - ano e mes (1 a 12) — os dois juntos ou nenhum. Sem eles, a
+              listagem traz todas as transações da família.
             """)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult> Listar([FromQuery] int pagina = 1, [FromQuery] int tamanhoPagina = 50, CancellationToken cancellationToken = default)
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult> Listar([FromQuery] int pagina = 1, [FromQuery] int tamanhoPagina = 50, [FromQuery] int? ano = null, [FromQuery] int? mes = null, CancellationToken cancellationToken = default)
         {
-            return Ok(await _service.Listar(pagina, tamanhoPagina, cancellationToken));
+            return Ok(await _service.Listar(pagina, tamanhoPagina, ano, mes, cancellationToken));
         }
 
         [HttpPost]

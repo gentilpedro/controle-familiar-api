@@ -96,6 +96,51 @@ migration e quais já existiam (ex.: conta criada via `Registrar` entre a migrat
 aplicada em produção). Reverter arriscaria desvincular `Pessoa` legítima — rollback aqui é restaurar
 backup, não `Down()`.
 
+## Forma de pagamento (desde 2026-08-12)
+
+`FormaPagamento` é uma entidade nova com o **mesmo desenho de `Categoria`**: catálogo do sistema
+(`FamiliaId` nulo — Pix, Dinheiro, Saque, em `Data/FormasPagamentoPadrao.cs`) ao lado das criadas por
+cada família, imutáveis para elas (403 em editar/excluir), isoladas entre famílias. `CRUD` em
+`/api/formas-pagamento`, espelhando `CategoriasController`/`CategoriaService`.
+
+Ela responde "por onde o dinheiro passou", enquanto a Categoria responde "com o quê" — são eixos
+diferentes, por isso entidade nova e não mais uma `FinalidadeCategoria`.
+
+- **`Transacao.FormaPagamentoId` é anulável e continua assim.** As transações que já existiam não
+  têm forma de pagamento e não há dado de origem pra inventar uma (mesma lição de
+  `AdicionaDataNaTransacao`, que precisou hardcodar uma data no `Up()`). Lançamento sem forma de
+  pagamento é válido por design, não um estado a corrigir depois.
+- **`TransacaoUpdateDto.RemoverFormaPagamento`** existe porque num PATCH parcial "campo ausente" e
+  "campo enviado como null" chegam idênticos em `int?` — sem a flag dava pra trocar a forma de
+  pagamento, nunca pra tirá-la. Ela tem precedência sobre `FormaPagamentoId` se os dois vierem.
+- **`FormaPagamentoService.Deletar` checa uso antes de apagar.** A FK é `Restrict`: sem a checagem o
+  `SaveChanges` estouraria `DbUpdateException` e viraria 500 em vez da explicação. É a diferença
+  em relação ao `CategoriaService`, que não faz essa checagem (lacuna conhecida lá, não copiada
+  pra cá).
+- Vale pra série também: `CriarParcelada`/`CriarRecorrenciaPercentual` aceitam `FormaPagamentoId` e
+  aplicam a todas as ocorrências; no `Atualizar`, a forma **propaga** com `AplicarAFuturas` (é
+  atributo da compra inteira, diferente de `Data`/`Pago`, que são por ocorrência).
+- O seed do sistema está em **dois lugares que precisam ficar sincronizados na mão**:
+  `Data/FormasPagamentoPadrao.cs` (fonte do `EnsureCreated` dos testes) e o `Sql` da migration
+  `AdicionaFormaPagamento` (fonte de produção) — mesmo par de `CategoriasPadrao` /
+  `SeedCategoriasDoSistema`, com o mesmo `NOT EXISTS` que torna a migration segura de reexecutar.
+
+## Filtro de período em `GET /transacoes` (desde 2026-08-12)
+
+`?ano=&mes=` recorta a listagem paginada por mês. **Os dois juntos ou nenhum** — `ano` sozinho
+pareceria filtro de ano inteiro e `mes` sozinho não identifica período nenhum, então o par
+incompleto é 400 em vez de um recorte silenciosamente diferente do pedido. Sem os dois, a listagem
+continua trazendo o histórico inteiro (nenhum cliente antigo quebra).
+
+O filtro é **intervalo** (`Data >= 01/mês && Data < 01/mês+1`), não `t.Data.Year == ano &&
+t.Data.Month == mes`: comparar a coluna direto mantém o índice `(FamiliaId, Data)` utilizável,
+enquanto `DATEPART` em cima dela forçaria scan. `AddMonths` resolve a virada de ano sozinho
+(coberto por `Listar_ComFiltroDeMesEmDezembro_NaoVazaParaJaneiroSeguinte`).
+
+Isso fecha a lacuna registrada no Passo 6: o Painel Mensal do front filtrava no cliente sobre uma
+janela de 200 itens, o que **escondia meses inteiros** assim que a família passava de 200
+transações no total.
+
 ## Histórico da família (Relatório Familiar no front)
 
 `GET /api/familia/historico` é um recorte curado de `RegistroAuditoria` — só `CriacaoFamilia`,
@@ -259,8 +304,9 @@ transporta esse saldo pro mês seguinte como uma transação normal.
 - ⚠️ **Não existe "reabrir" um mês fechado nesta versão** — decisão de escopo explícita. Se um
   lançamento atrasado entrar no mês depois do fechamento, o saldo transportado fica desatualizado
   até uma correção manual (editar a transação de saldo, ou lançar um ajuste).
-- `GET /transacoes` **continua sem filtro de período** — o Painel Mensal filtra no cliente (busca
-  até 200 itens e filtra por `Data` localmente). Fora de escopo desta rodada, registrado no plano.
+- `GET /transacoes` não tinha filtro de período nesta rodada — o Painel Mensal filtrava no cliente
+  (buscava até 200 itens e filtrava por `Data` localmente). **Isso mudou**: ver "Filtro de período
+  em `GET /transacoes`" abaixo.
 
 ## Deploy e release
 
@@ -279,5 +325,10 @@ e-mail fica desativado e o código de convite continua funcionando).
 
 ## Testes
 
-`dotnet test` — 53 testes, integração com SQLite em memória via `CustomWebApplicationFactory`.
+`dotnet test` — 114 testes, integração com SQLite em memória via `CustomWebApplicationFactory`.
 Cobrem autenticação, isolamento por família, health check e as regras de negócio das transações.
+
+⚠️ `CustomWebApplicationFactory.InicializarBancoAsync` insere **os dois catálogos do sistema na
+mão** (`CategoriasPadrao.DoSistema()` e `FormasPagamentoPadrao.DoSistema()`): lá o schema vem de
+`EnsureCreated` a partir do modelo, sem migration nenhuma. Catálogo de sistema novo precisa ser
+adicionado ali também, ou os testes rodam contra uma tabela vazia.

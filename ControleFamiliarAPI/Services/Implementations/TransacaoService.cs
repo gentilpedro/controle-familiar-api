@@ -25,10 +25,37 @@ namespace ControleFamiliarAPI.Services.Implementations
             _currentUser = currentUser;
         }
 
-        public async Task<PaginacaoResultado<TransacaoResponseDto>> Listar(int pagina, int tamanhoPagina, CancellationToken cancellationToken = default)
+        public async Task<PaginacaoResultado<TransacaoResponseDto>> Listar(int pagina, int tamanhoPagina, int? ano = null, int? mes = null, CancellationToken cancellationToken = default)
         {
             pagina = Math.Max(pagina, 1);
             tamanhoPagina = Math.Clamp(tamanhoPagina, 1, TamanhoPaginaMaximo);
+
+            // Os dois juntos ou nenhum: "ano=2026" sozinho poderia parecer um
+            // filtro de ano inteiro, e "mes=8" sozinho não identifica período
+            // nenhum. Falhar é melhor que devolver silenciosamente um recorte
+            // diferente do que o cliente pediu.
+            if (ano.HasValue != mes.HasValue)
+                throw new BusinessRuleException("Informe ano e mês juntos para filtrar por período.");
+
+            if (mes.HasValue && (mes < 1 || mes > 12))
+                throw new BusinessRuleException("Mês inválido.");
+
+            if (ano.HasValue && (ano < 1 || ano > 9999))
+                throw new BusinessRuleException("Ano inválido.");
+
+            var filtrada = _context.Transacoes
+                .Where(t => t.FamiliaId == _currentUser.FamiliaId);
+
+            if (ano.HasValue && mes.HasValue)
+            {
+                // Intervalo em vez de t.Data.Year == ano && t.Data.Month == mes:
+                // comparar a coluna direto deixa o índice (FamiliaId, Data)
+                // utilizável, enquanto DATEPART em cima dela forçaria um scan.
+                var inicio = new DateOnly(ano.Value, mes.Value, 1);
+                var fim = inicio.AddMonths(1);
+
+                filtrada = filtrada.Where(t => t.Data >= inicio && t.Data < fim);
+            }
 
             // Sem Include: o Select abaixo já projeta só os campos escalares de
             // Pessoa/Categoria, então o EF Core gera o JOIN sozinho a partir da
@@ -37,8 +64,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             // mesmo dia mantêm a ordem de criação entre si, e uma parcela
             // futura (Data adiante, criada hoje) aparece na posição
             // correspondente à data dela, não no topo por ter Id maior.
-            var query = _context.Transacoes
-                .Where(t => t.FamiliaId == _currentUser.FamiliaId)
+            var query = filtrada
                 .OrderByDescending(t => t.Data)
                 .ThenByDescending(t => t.Id);
 
@@ -60,8 +86,12 @@ namespace ControleFamiliarAPI.Services.Implementations
                     TotalParcelas = t.TotalParcelas,
                     Pessoa = t.Pessoa!.Nome,
                     Categoria = t.Categoria!.Descricao,
+                    // Navegação anulável: LEFT JOIN, e a transação sem forma
+                    // de pagamento devolve null aqui em vez de sumir da lista.
+                    FormaPagamento = t.FormaPagamento!.Descricao,
                     PessoaId = t.PessoaId,
-                    CategoriaId = t.CategoriaId
+                    CategoriaId = t.CategoriaId,
+                    FormaPagamentoId = t.FormaPagamentoId
                 })
                 .ToListAsync(cancellationToken);
 
@@ -98,6 +128,8 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             ValidarRegrasDeNegocio(pessoa, categoria, dto.Tipo);
 
+            await GarantirFormaPagamentoValida(dto.FormaPagamentoId, cancellationToken);
+
             var transacao = new Transacao
             {
                 Descricao = dto.Descricao,
@@ -107,6 +139,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                 Pago = dto.Pago ?? true,
                 PessoaId = dto.PessoaId,
                 CategoriaId = dto.CategoriaId,
+                FormaPagamentoId = dto.FormaPagamentoId,
                 FamiliaId = _currentUser.FamiliaId
             };
 
@@ -136,6 +169,8 @@ namespace ControleFamiliarAPI.Services.Implementations
                 throw new NotFoundException("Categoria não encontrada.");
 
             ValidarRegrasDeNegocio(pessoa, categoria, dto.Tipo);
+
+            await GarantirFormaPagamentoValida(dto.FormaPagamentoId, cancellationToken);
 
             // Sem isto, um valor total baixo dividido em muitas parcelas gera
             // parcela de R$0,00 (ex.: R$0,05 em 10x — Round(0.005,2) = 0.00),
@@ -173,6 +208,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Pago = false,
                     PessoaId = dto.PessoaId,
                     CategoriaId = dto.CategoriaId,
+                    FormaPagamentoId = dto.FormaPagamentoId,
                     FamiliaId = _currentUser.FamiliaId,
                     SerieId = serieId,
                     NumeroParcela = i + 1,
@@ -212,6 +248,8 @@ namespace ControleFamiliarAPI.Services.Implementations
             // (hoje, só "Salário").
             ValidarRegrasDeNegocio(pessoa, categoria, TipoTransacao.Receita);
 
+            await GarantirFormaPagamentoValida(dto.FormaPagamentoId, cancellationToken);
+
             var serieId = Guid.NewGuid();
             var totalOcorrencias = dto.Ocorrencias.Count;
             var mes = dto.MesReferencia!.Value;
@@ -238,6 +276,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                     Pago = false,
                     PessoaId = dto.PessoaId,
                     CategoriaId = dto.CategoriaId,
+                    FormaPagamentoId = dto.FormaPagamentoId,
                     FamiliaId = _currentUser.FamiliaId,
                     SerieId = serieId,
                     NumeroParcela = i + 1,
@@ -285,6 +324,15 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             ValidarRegrasDeNegocio(pessoa, categoria, tipo);
 
+            // RemoverFormaPagamento vence FormaPagamentoId: enviar os dois é
+            // um pedido contraditório, e "tire a forma de pagamento" é o mais
+            // específico dos dois.
+            var formaPagamentoId = dto.RemoverFormaPagamento
+                ? null
+                : dto.FormaPagamentoId ?? transacao.FormaPagamentoId;
+
+            await GarantirFormaPagamentoValida(formaPagamentoId, cancellationToken);
+
             await using var transacaoDb = await _context.Database.BeginTransactionAsync(cancellationToken);
 
             // Data e Pago só se aplicam na transação editada diretamente —
@@ -295,7 +343,7 @@ namespace ControleFamiliarAPI.Services.Implementations
             if (dto.Pago.HasValue)
                 transacao.Pago = dto.Pago.Value;
 
-            AplicarCampos(transacao, dto, pessoaId, categoriaId, tipo);
+            AplicarCampos(transacao, dto, pessoaId, categoriaId, tipo, formaPagamentoId);
 
             // Duas edições quase simultâneas na mesma série (mais provável
             // via duplo-clique/duas abas do que dois usuários concorrentes)
@@ -313,7 +361,7 @@ namespace ControleFamiliarAPI.Services.Implementations
                     .ToListAsync(cancellationToken);
 
                 foreach (var futura in futuras)
-                    AplicarCampos(futura, dto, pessoaId, categoriaId, tipo);
+                    AplicarCampos(futura, dto, pessoaId, categoriaId, tipo, formaPagamentoId);
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -360,10 +408,10 @@ namespace ControleFamiliarAPI.Services.Implementations
             await transacaoDb.CommitAsync(cancellationToken);
         }
 
-        // Descrição/Valor/Pessoa/Categoria/Tipo — os campos que fazem
-        // sentido propagar pra ocorrências futuras da mesma série. Data fica
-        // de fora de propósito: propagar mudaria o espaçamento da série.
-        private static void AplicarCampos(Transacao transacao, TransacaoUpdateDto dto, int pessoaId, int categoriaId, TipoTransacao tipo)
+        // Descrição/Valor/Pessoa/Categoria/FormaPagamento/Tipo — os campos que
+        // fazem sentido propagar pra ocorrências futuras da mesma série. Data
+        // fica de fora de propósito: propagar mudaria o espaçamento da série.
+        private static void AplicarCampos(Transacao transacao, TransacaoUpdateDto dto, int pessoaId, int categoriaId, TipoTransacao tipo, int? formaPagamentoId)
         {
             if (!string.IsNullOrEmpty(dto.Descricao))
                 transacao.Descricao = dto.Descricao;
@@ -373,7 +421,26 @@ namespace ControleFamiliarAPI.Services.Implementations
 
             transacao.PessoaId = pessoaId;
             transacao.CategoriaId = categoriaId;
+            transacao.FormaPagamentoId = formaPagamentoId;
             transacao.Tipo = tipo;
+        }
+
+        // Aceita também as do sistema (FamiliaId null), que são justamente as
+        // que qualquer família pode usar num lançamento — mesma regra da
+        // Categoria. Nulo é ausência legítima (o campo é opcional), não erro.
+        private async Task GarantirFormaPagamentoValida(int? formaPagamentoId, CancellationToken cancellationToken)
+        {
+            if (formaPagamentoId == null)
+                return;
+
+            var existe = await _context.FormasPagamento
+                .AnyAsync(
+                    f => f.Id == formaPagamentoId
+                        && (f.FamiliaId == _currentUser.FamiliaId || f.FamiliaId == null),
+                    cancellationToken);
+
+            if (!existe)
+                throw new NotFoundException("Forma de pagamento não encontrada.");
         }
 
         // Compartilhada por Criar, CriarParcelada e Atualizar: todas

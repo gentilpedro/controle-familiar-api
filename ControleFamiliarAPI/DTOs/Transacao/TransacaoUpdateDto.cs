@@ -28,6 +28,21 @@ namespace ControleFamiliarAPI.DTOs.Transacao
         public int? CategoriaId { get; set; }
 
         /// <summary>
+        /// Nova forma de pagamento. Omitir mantém a atual — para tirar a forma
+        /// de pagamento de uma transação use RemoverFormaPagamento.
+        /// </summary>
+        public int? FormaPagamentoId { get; set; }
+
+        /// <summary>
+        /// Limpa a forma de pagamento da transação. Existe porque num PATCH
+        /// parcial "campo ausente" e "campo enviado como null" chegam iguais
+        /// em FormaPagamentoId — sem esta flag não haveria como desfazer a
+        /// escolha, só trocá-la por outra. Tem precedência sobre
+        /// FormaPagamentoId se os dois vierem.
+        /// </summary>
+        public bool RemoverFormaPagamento { get; set; }
+
+        /// <summary>
         /// Quando true e a transação pertence a uma série (parcelamento ou
         /// divisão percentual), propaga os campos alterados — exceto Data —
         /// para as ocorrências seguintes da mesma série. Sem efeito numa

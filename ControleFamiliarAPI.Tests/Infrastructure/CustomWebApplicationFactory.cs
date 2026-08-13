@@ -68,6 +68,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         // do modelo, sem passar por migration nenhuma — então ele precisa ser
         // inserido na mão, ou os testes rodariam contra um catálogo vazio.
         db.Categorias.AddRange(CategoriasPadrao.DoSistema());
+
+        // Mesma história das categorias: em produção o catálogo entra pela
+        // migration AdicionaFormaPagamento, que aqui não roda.
+        db.FormasPagamento.AddRange(FormasPagamentoPadrao.DoSistema());
+
         await db.SaveChangesAsync();
     }
 

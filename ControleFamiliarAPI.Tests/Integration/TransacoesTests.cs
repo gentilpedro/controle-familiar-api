@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using ControleFamiliarAPI.DTOs.Categoria;
+using ControleFamiliarAPI.DTOs.FormaPagamento;
 using ControleFamiliarAPI.DTOs.Paginacao;
 using ControleFamiliarAPI.DTOs.Pessoa;
 using ControleFamiliarAPI.DTOs.Transacao;
@@ -733,6 +734,217 @@ public class TransacoesTests : IntegrationTestBase
             "/api/transacoes/999999/pago", new TransacaoPagoUpdateDto { Pago = true }, AuthTestHelper.JsonOptions);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private async Task<int> BuscarFormaPagamentoIdAsync(string descricao)
+    {
+        var formas = await (await Client.GetAsync("/api/formas-pagamento"))
+            .Content.ReadFromJsonAsync<List<FormaPagamentoResponseDto>>(AuthTestHelper.JsonOptions);
+
+        return formas!.Single(f => f.Descricao == descricao).Id;
+    }
+
+    [Fact]
+    public async Task Criar_ComFormaPagamentoDoSistema_GravaEDevolveNaListagem()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+        var pixId = await BuscarFormaPagamentoIdAsync("Pix");
+
+        var dto = new TransacaoCreateDto
+        {
+            Descricao = "Pix recebido",
+            Valor = 200,
+            Tipo = TipoTransacao.Receita,
+            Data = DateOnly.FromDateTime(DateTime.UtcNow),
+            PessoaId = pessoaId,
+            CategoriaId = categoriaId,
+            FormaPagamentoId = pixId
+        };
+        (await Client.PostAsJsonAsync("/api/transacoes", dto, AuthTestHelper.JsonOptions)).EnsureSuccessStatusCode();
+
+        var transacao = (await ListarTodasAsync()).Single(t => t.Descricao == "Pix recebido");
+
+        Assert.Equal(pixId, transacao.FormaPagamentoId);
+        Assert.Equal("Pix", transacao.FormaPagamento);
+    }
+
+    /// <summary>
+    /// O campo é opcional — transação sem forma de pagamento continua válida
+    /// (é o caso de todas as que existiam antes do campo).
+    /// </summary>
+    [Fact]
+    public async Task Criar_SemFormaPagamento_ContinuaValidaEDevolveNulo()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+        var id = await CriarTransacaoAsync(pessoaId, categoriaId);
+
+        var transacao = (await ListarTodasAsync()).Single(t => t.Id == id);
+
+        Assert.Null(transacao.FormaPagamentoId);
+        Assert.Null(transacao.FormaPagamento);
+    }
+
+    [Fact]
+    public async Task Criar_ComFormaPagamentoInexistente_Retorna404()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+
+        var dto = new TransacaoCreateDto
+        {
+            Descricao = "Forma fantasma",
+            Valor = 10,
+            Tipo = TipoTransacao.Despesa,
+            Data = DateOnly.FromDateTime(DateTime.UtcNow),
+            PessoaId = pessoaId,
+            CategoriaId = categoriaId,
+            FormaPagamentoId = 999999
+        };
+        var response = await Client.PostAsJsonAsync("/api/transacoes", dto, AuthTestHelper.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Num PATCH parcial, campo ausente e campo null chegam iguais — sem a
+    /// flag RemoverFormaPagamento não haveria como desfazer a escolha, só
+    /// trocá-la por outra.
+    /// </summary>
+    [Fact]
+    public async Task Atualizar_ComRemoverFormaPagamento_LimpaOCampo()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+        var dinheiroId = await BuscarFormaPagamentoIdAsync("Dinheiro");
+
+        var dto = new TransacaoCreateDto
+        {
+            Descricao = "Compra",
+            Valor = 50,
+            Tipo = TipoTransacao.Despesa,
+            Data = DateOnly.FromDateTime(DateTime.UtcNow),
+            PessoaId = pessoaId,
+            CategoriaId = categoriaId,
+            FormaPagamentoId = dinheiroId
+        };
+        (await Client.PostAsJsonAsync("/api/transacoes", dto, AuthTestHelper.JsonOptions)).EnsureSuccessStatusCode();
+
+        var id = (await ListarTodasAsync()).Single(t => t.Descricao == "Compra").Id;
+
+        // Só a descrição: a forma de pagamento não pode se perder no caminho.
+        (await Client.PatchAsJsonAsync(
+            $"/api/transacoes/{id}",
+            new TransacaoUpdateDto { Descricao = "Compra editada" },
+            AuthTestHelper.JsonOptions)).EnsureSuccessStatusCode();
+
+        Assert.Equal(dinheiroId, (await ListarTodasAsync()).Single(t => t.Id == id).FormaPagamentoId);
+
+        (await Client.PatchAsJsonAsync(
+            $"/api/transacoes/{id}",
+            new TransacaoUpdateDto { RemoverFormaPagamento = true },
+            AuthTestHelper.JsonOptions)).EnsureSuccessStatusCode();
+
+        var semForma = (await ListarTodasAsync()).Single(t => t.Id == id);
+        Assert.Null(semForma.FormaPagamentoId);
+        Assert.Null(semForma.FormaPagamento);
+    }
+
+    [Fact]
+    public async Task Listar_ComFiltroDeMes_TrazSoAsTransacoesDaquelePeriodo()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+
+        // Primeiro e último dia do mês filtrado entram; um dia antes e um dia
+        // depois ficam de fora — é a borda do intervalo que interessa aqui.
+        await CriarTransacaoDatadaAsync(pessoaId, categoriaId, "Primeiro dia", new DateOnly(2026, 8, 1));
+        await CriarTransacaoDatadaAsync(pessoaId, categoriaId, "Último dia", new DateOnly(2026, 8, 31));
+        await CriarTransacaoDatadaAsync(pessoaId, categoriaId, "Mês anterior", new DateOnly(2026, 7, 31));
+        await CriarTransacaoDatadaAsync(pessoaId, categoriaId, "Mês seguinte", new DateOnly(2026, 9, 1));
+
+        var pagina = await (await Client.GetAsync("/api/transacoes?pagina=1&tamanhoPagina=50&ano=2026&mes=8"))
+            .Content.ReadFromJsonAsync<PaginacaoResultado<TransacaoResponseDto>>(AuthTestHelper.JsonOptions);
+
+        Assert.Equal(2, pagina!.TotalItens);
+        Assert.Equal(
+            new[] { "Primeiro dia", "Último dia" },
+            pagina.Itens.Select(t => t.Descricao).OrderBy(d => d));
+    }
+
+    [Fact]
+    public async Task Listar_ComFiltroDeMesEmDezembro_NaoVazaParaJaneiroSeguinte()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+
+        await CriarTransacaoDatadaAsync(pessoaId, categoriaId, "Dezembro", new DateOnly(2026, 12, 20));
+        await CriarTransacaoDatadaAsync(pessoaId, categoriaId, "Janeiro", new DateOnly(2027, 1, 5));
+
+        var pagina = await (await Client.GetAsync("/api/transacoes?pagina=1&tamanhoPagina=50&ano=2026&mes=12"))
+            .Content.ReadFromJsonAsync<PaginacaoResultado<TransacaoResponseDto>>(AuthTestHelper.JsonOptions);
+
+        Assert.Equal(1, pagina!.TotalItens);
+        Assert.Equal("Dezembro", pagina.Itens[0].Descricao);
+    }
+
+    [Fact]
+    public async Task Listar_SemFiltro_ContinuaTrazendoOHistoricoInteiro()
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var (pessoaId, categoriaId) = await CriarPessoaECategoriaAsync(idadePessoa: 30, FinalidadeCategoria.Ambas);
+
+        await CriarTransacaoDatadaAsync(pessoaId, categoriaId, "Agosto", new DateOnly(2026, 8, 10));
+        await CriarTransacaoDatadaAsync(pessoaId, categoriaId, "Setembro", new DateOnly(2026, 9, 10));
+
+        var pagina = await (await Client.GetAsync("/api/transacoes?pagina=1&tamanhoPagina=50"))
+            .Content.ReadFromJsonAsync<PaginacaoResultado<TransacaoResponseDto>>(AuthTestHelper.JsonOptions);
+
+        Assert.Equal(2, pagina!.TotalItens);
+    }
+
+    [Theory]
+    [InlineData("ano=2026")]
+    [InlineData("mes=8")]
+    [InlineData("ano=2026&mes=13")]
+    [InlineData("ano=2026&mes=0")]
+    public async Task Listar_ComPeriodoIncompletoOuInvalido_Retorna400(string queryString)
+    {
+        var auth = await AuthTestHelper.RegistrarNovaFamiliaAsync(Client);
+        Client.ComToken(auth.Token);
+
+        var response = await Client.GetAsync($"/api/transacoes?pagina=1&tamanhoPagina=50&{queryString}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    private async Task CriarTransacaoDatadaAsync(int pessoaId, int categoriaId, string descricao, DateOnly data)
+    {
+        var dto = new TransacaoCreateDto
+        {
+            Descricao = descricao,
+            Valor = 100,
+            Tipo = TipoTransacao.Despesa,
+            Data = data,
+            PessoaId = pessoaId,
+            CategoriaId = categoriaId
+        };
+        (await Client.PostAsJsonAsync("/api/transacoes", dto, AuthTestHelper.JsonOptions)).EnsureSuccessStatusCode();
     }
 
     /// <summary>
