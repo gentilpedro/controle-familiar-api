@@ -97,6 +97,18 @@ jobs:
           echo "App temporarily offline for deployment." > app_offline.htm
           curl --ftp-pasv -T app_offline.htm --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" "ftp://${{ secrets.FTP_SERVER }}/wwwroot/app_offline.htm"
 
+          # O IIS nao solta os handles no instante em que app_offline.htm
+          # aparece: ele ainda precisa drenar as requisicoes em andamento e
+          # descarregar o processo pra liberar ControleFamiliarAPI.dll.
+          #
+          # Sem esta espera o passo seguinte tentava substituir a DLL um
+          # segundo depois do upload e tomava "550 Could not access file:
+          # driver error: calling GetHandle: failure" logo no primeiro
+          # arquivo. Foi o que derrubou a producao em 13/08/2026: dois merges
+          # na main com um minuto de diferenca pegaram o app recem-reiniciado
+          # pelo deploy anterior, com o assembly ainda carregado.
+          sleep 20
+
       - name: FTP Deploy
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -106,7 +118,24 @@ jobs:
           local-dir: ./publish/
           server-dir: /wwwroot/
 
+      # if: always() e o ponto deste passo. Sem ele, qualquer falha no FTP
+      # Deploy deixa o app_offline.htm no servidor e o site responde 503 pra
+      # todo mundo ATE alguem perceber e intervir — foi exatamente assim que
+      # uma falha de 3 segundos no upload virou uma producao fora do ar.
+      #
+      # Um deploy que falha deve deixar no ar o que ja estava la, nao uma
+      # pagina de manutencao permanente. O caso comum de falha e o sync
+      # morrer no primeiro arquivo (nada foi trocado ainda), e ai voltar
+      # online restaura exatamente a versao anterior.
+      #
+      # O risco assumido e o oposto: se o sync morrer no meio, o app volta
+      # com arquivos de duas versoes misturados e pode nao subir. Fica
+      # visivel do mesmo jeito (o job aparece vermelho e o job release nao
+      # roda, entao nenhuma tag e criada pra essa versao), e o conserto e
+      # reexecutar o deploy — enquanto o 503 silencioso nao tem sintoma
+      # nenhum alem do site fora.
       - name: Bring app back online
+        if: always()
         run: |
           curl --ftp-pasv --user "${{ secrets.FTP_USERNAME }}:${{ secrets.FTP_PASSWORD }}" -Q "DELE /wwwroot/app_offline.htm" "ftp://${{ secrets.FTP_SERVER }}/"
 

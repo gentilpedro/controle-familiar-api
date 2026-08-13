@@ -355,6 +355,26 @@ As migrations **não** rodam no CI: o MSSQL free do MonsterASP.NET só aceita "L
 runner do GitHub não alcança. A aplicação aplica sozinha ao subir (`Database.Migrate()` no
 `Program.cs`).
 
+### Incidente 2026-08-13: 503 "App temporarily offline for deployment"
+
+Dois merges na `main` com um minuto de diferença. O `concurrency: deploy-producao` funcionou (o
+segundo deploy esperou o primeiro), mas ele pegou o app **recém-reiniciado** pelo deploy anterior,
+com `ControleFamiliarAPI.dll` ainda carregada — e o passo de FTP tentava substituí-la **1 segundo**
+depois de subir o `app_offline.htm`, antes de o IIS drenar e soltar o handle:
+`550 Could not access file: driver error: calling GetHandle: failure`, logo no primeiro arquivo.
+
+O que transformou uma falha de 3 segundos em produção fora do ar foi o passo **"Bring app back
+online" não ter `if: always()`**: como o FTP falhou, ele foi pulado, o `app_offline.htm` ficou lá e
+o site respondeu 503 pra todo mundo até alguém reexecutar o workflow.
+
+Os dois foram corrigidos (`sleep 20` depois do `app_offline.htm`, `if: always()` no passo de voltar
+online). Lição geral, que já vale pro Stripe documentado acima: **o modo de falha do deploy importa
+mais que a falha em si.** Um passo que só desfaz o estado no caminho feliz garante que todo erro
+vire outage.
+
+⚠️ Reexecutar o deploy (`gh run rerun <id> --failed`) é o conserto quando isso acontece — o passo de
+voltar online roda no fim e derruba o `app_offline.htm`.
+
 Secrets necessários: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`, `DB_CONNECTION_STRING`, `JWT_KEY`,
 `WEB_ORIGIN`, `SCALAR_USERNAME`, `SCALAR_PASSWORD`, e os `SMTP_*` (opcionais — sem eles o convite por
 e-mail fica desativado e o código de convite continua funcionando).
